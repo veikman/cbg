@@ -63,8 +63,10 @@ class SetOfTags(set):
             s = t.printstring
             if t in self.masters:
                 subs = sorted([str(s) for s in self.subordinates
-                                            if s.subordinate_to == t])
-                s += ' ({})'.format(', '.join(subs))
+                                            if s.subordinate_to == t \
+                                            and s.printing])
+                if subs:
+                    s += ' ({})'.format(', '.join(subs))
             ret.append(s)
         return ', '.join(ret)
 

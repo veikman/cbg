@@ -37,7 +37,6 @@ class Font(unittest.TestCase):
         self.assertEqual(self.xml.get(style.STYLE), s)
 
 class Color(unittest.TestCase):
-
     def setUp(self):
         wardrobe.WARDROBE.reset()
 
@@ -55,4 +54,12 @@ class Color(unittest.TestCase):
     def test_contrast(self):
         wardrobe.WARDROBE.mode_contrast(fill=True)
         self.assertEqual(self.xml.get(style.STYLE), 'fill:#ffffff;')
-        
+
+class Duplicator(unittest.TestCase):
+    def test_color(self):
+        original = wardrobe.WARDROBE
+        self.assertEqual(original.colors[style.MAIN], wardrobe.BLACK)
+        new = original.but.colors_main(wardrobe.GRAY_50)
+        self.assertIsNot(original, new)
+        self.assertNotEqual(original.colors, new.colors)
+        self.assertEqual(new.colors[style.MAIN], wardrobe.GRAY_50)

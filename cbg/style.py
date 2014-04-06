@@ -33,15 +33,16 @@ MAIN = 'main'
 CONTRAST = 'contrast'
 ACCENT = 'accent'
 
+KEYS = (MAIN, CONTRAST, ACCENT)
 
 class Wardrobe():
     '''A set of fonts, colors and other presentation-layer assets.
-    
+
     The "fonts" and "colors" arguments are both expected to be
     dictionaries whose keys are the mode strings of this module,
     and whose values are tuples or similar iterables, containing
     at least one appropriate object for each mode likely to be used.
-    
+
     '''
     def __init__(self, size, fonts, colors):
         self.size = size
@@ -49,6 +50,7 @@ class Wardrobe():
         self.colors = colors
         self.reset()
         self._sanity()
+        self.but = Duplicator(self)
 
     def reset(self):
         self._force_bold = False
@@ -163,6 +165,22 @@ class Wardrobe():
             raise TypeError(s.format(self._color_mode_stroke,
                                      self.colors[self._color_mode_stroke]))
 
+class Duplicator():
+    '''A wardrobe design tool for small differences.'''
+    def __init__(self, parent):
+        for dictname in ('fonts', 'colors'):
+            for key in KEYS:
+                ## Create a method for respawning parent with a difference.
+                self._closure(parent, dictname, key)
+
+    def _closure(self, parent, dictname, key):
+        '''This method is just a scope for its local variables.'''
+        def f(new_value):
+            duplicate = copy.deepcopy(parent)
+            getattr(duplicate, dictname)[key] = new_value
+            return duplicate
+        setattr(self, '{}_{}'.format(dictname, key), f)
+
 class FontSize():
     '''A set of properties shared by all fonts in a wardrobe.'''
     def __init__(self, base, stroke_factor=0.02,
@@ -183,20 +201,20 @@ class FontSize():
 
 class FontFamily():
     '''An ugly band-aid over our lack of real typesetting abstractions.
-    
+
     The numbers passed to instantiate this class are used to estimate how
-    long a given piece of text is going to be
-    
+    long a given piece of text is going to be.
+
     They are based on rough estimates of slightly broader-than-average
     letters, to cover most cases. Lines of unusually slim or broad
     characters are going to look bad.
-    
+
     '''
     def __init__(self, name, width_to_height, bold_to_roman):
         self.name = name
         self.width_to_height = width_to_height
         self.bold_to_roman = bold_to_roman
-        
+
     def __str__(self):
         return self.name
 
