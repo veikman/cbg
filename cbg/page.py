@@ -7,15 +7,15 @@ import lxml.builder
 import numpy
 
 from . import exc
+from . import size
 from . import svg
 
 class Page():
     '''A logical printable page, populated by neatly layed out cards.'''
     number = 0
 
-    def __init__(self, size, margins):
-        self.size = numpy.array(size)
-        self.margins = numpy.array(margins)
+    def __init__(self, dimensions=size.A4):
+        self.full_size = dimensions
 
         self.__class__.number += 1
         self.number = self.__class__.number
@@ -26,10 +26,10 @@ class Page():
         head['xml'] = svg.NAMESPACE_XML
         head['baseProfile'] = 'full'
         head['version'] = '1.1'
-        head['width'], head['height'] = svg.mm(self.size)
+        head['width'], head['height'] = svg.mm(self.full_size.footprint)
 
         self.xml = lxml.builder.E.svg(lxml.builder.E.defs, head)
-        self.printable = self.size - 2 * self.margins
+        self.printable = self.full_size.footprint - 2 * self.full_size.margins
 
         self.row_heights = []
         self._new_row()
@@ -53,7 +53,7 @@ class Page():
         top left corner that the card would have on the page.
 
         If the card would not fit, return False.
-        
+
         '''
         space_x, space_y = self.printable
         row_x, row_y = self.row_size
@@ -70,7 +70,7 @@ class Page():
         if space_y < occupied_y + card_y:
             ## A new row would not be high enough.
             return False
-        return self.margins + (row_x, occupied_y)
+        return self.full_size.margins + (row_x, occupied_y)
 
     def add(self, footprint, xml):
         if not self.can_fit(footprint):
