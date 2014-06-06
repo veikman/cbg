@@ -2,18 +2,14 @@
 '''Style examples and defaults.'''
 
 from . import style
-
-## Color iterables:
+from . import fonts
+from . import size
 
 BLACK = (style.COLOR_BLACK,)
 WHITE = (style.COLOR_WHITE,)
 GRAY_50 = (style.COLOR_GRAY_50,)
 
-## Custom OOP representations:
-
-ARIAL = style.FontFamily('Arial', 0.6, 1.1)
-ME_TITLE = style.FontSize(4)
-ARIAL_CENTERED = style.Type(ARIAL, anchor='middle')
+ARIAL_CENTERED = style.Type(fonts.ARIAL, anchor='middle')
 
 FONTSCHEME = { style.MAIN: ARIAL_CENTERED }
 
@@ -22,4 +18,4 @@ COLORSCHEME = { style.MAIN: BLACK
               , style.CONTRAST: WHITE
               }
 
-WARDROBE = style.Wardrobe(ME_TITLE, FONTSCHEME, COLORSCHEME)
+WARDROBE = style.Wardrobe(size.FONT_TITLE_ME, FONTSCHEME, COLORSCHEME)

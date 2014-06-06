@@ -9,7 +9,6 @@ Reaction").
 
 import copy
 
-from . import svg
 from . import misc
 
 ## SVG code keywords.
@@ -181,36 +180,19 @@ class Duplicator():
             return duplicate
         setattr(self, '{}_{}'.format(dictname, key), f)
 
-class FontSize():
-    '''A set of properties shared by all fonts in a wardrobe.'''
-    def __init__(self, base, stroke_factor=0.02,
-                 line_height_factor=1.2, after_paragraph_factor=0.3):
-        self.base = base
-        self.stroke = stroke_factor * self.base
-        self.line_height = line_height_factor * self.base
-        self.after_paragraph = after_paragraph_factor * self.base
-
-    def dict_svg(self):
-        return {STYLE: 'font-size:{};'.format(svg.mm(float(self)))}
-
-    def __int__(self):
-        return int(self.base)
-
-    def __float__(self):
-        return float(self.base)
-
 class FontFamily():
     '''An ugly band-aid over our lack of real typesetting abstractions.
 
     The numbers passed to instantiate this class are used to estimate how
-    long a given piece of text is going to be.
+    long a given piece of text is going to be. A higher number for width-
+    to-height signifies a squat, broad font family.
 
-    They are based on rough estimates of slightly broader-than-average
-    letters, to cover most cases. Lines of unusually slim or broad
-    characters are going to look bad.
+    The numbers should be based on rough estimates of slightly broader-
+    than-average letters, to cover most cases. Lines of unusually slim
+    or broad characters are going to look bad.
 
     '''
-    def __init__(self, name, width_to_height, bold_to_roman):
+    def __init__(self, name, width_to_height=0.6, bold_to_roman=1.1):
         self.name = name
         self.width_to_height = width_to_height
         self.bold_to_roman = bold_to_roman

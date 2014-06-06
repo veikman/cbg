@@ -3,8 +3,7 @@
 import yaml
 import collections
 import copy
-
-from . import exc
+import logging
 
 METADATA = 'DECK METADATA'
 DEFAULTS = 'DEFAULTS'
@@ -23,7 +22,8 @@ class Deck(collections.Counter):
             self.metadata = self.raw[METADATA]
         except KeyError:
             s = 'Deck specification in {} has no metadata.'
-            raise exc.SpecificationError(s.format(self.filepath))
+            logging.warning(s.format(self.filepath))
+            self.metadata = {DEFAULTS: {COPIES: 1}}
  
         default_copies = 1
         if DEFAULTS in self.metadata:

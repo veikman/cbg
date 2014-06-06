@@ -74,9 +74,9 @@ class Application():
         self.delete_old_files(self.folder_svg)
         self.delete_old_files(self.folder_printing)
 
-        queue = self.layout(self.read_deck_specs())
+        self.specs = [d.all_sorted for d in sorted(self.read_deck_specs())]
+        queue = self.layout()
         queue.save(self.folder_svg)
-
         if self.args.display:
             filename = sorted(glob.glob('{}/*'.format(self.folder_svg)))[0]
             ## Currently just one viewing method.
@@ -99,6 +99,11 @@ class Application():
 
             yield self.limit_selection(specs)
 
+    def find(self, deck_title):
+        for deck in self.specs:
+            if deck.title == deck_title:
+                return deck
+
     def limit_selection(self, specs):
         '''See if a user-supplied regex matches card titles.
         
@@ -112,10 +117,11 @@ class Application():
                 if len(interpreted) == 2:
                     ## The user has supplied a copy count.
                     copies = int(interpreted[0])
+                    regex = interpreted[-1]
                 else:
                     copies = 1
+                    regex = restriction
     
-                regex = interpreted[-1]
                 if re.search(regex, card.title):
                     specs[card] = copies
                     break
@@ -123,7 +129,7 @@ class Application():
 
         return specs
 
-    def layout(self, deck_specs):
+    def layout(self):
         '''Create a queue of layed-out pages, full of cards.
         
         By default, the pages are A4 with all measurements specified in
@@ -133,7 +139,7 @@ class Application():
         layouts = page.Queue(self.name_short)
         layouts.append(page.Page())
 
-        for listing in (deck.all_sorted for deck in sorted(deck_specs)):
+        for listing in self.specs:
             for cardcopy in listing:
                 foot = cardcopy.dresser.size.footprint
                 if not layouts[-1].can_fit(foot):
