@@ -6,6 +6,7 @@ import numpy
 from . import style
 from . import svg
 
+
 class CardSize():
     '''A card in millimetres.'''
     def __init__(self, footprint, border_outer, border_inner):
@@ -13,11 +14,20 @@ class CardSize():
         self.outer = border_outer
         self.inner = border_inner
 
+    def tilted(self):
+        return CardSize(numpy.flipud(self.footprint), self.outer, self.inner)
+
+    @property
+    def interior_width(self):
+        return self.footprint[0] - 2 * self.outer - 2 * self.inner
+
+
 class PageSize():
     '''A page in millimetres.'''
     def __init__(self, footprint, margins):
         self.footprint = numpy.array(footprint)
         self.margins = numpy.array(margins)
+
 
 class FontSize():
     '''A set of properties shared by all fonts in a wardrobe.'''
@@ -37,11 +47,12 @@ class FontSize():
     def __float__(self):
         return float(self.base)
 
+
 A4 = PageSize((210, 290), (16, 9))
 
 MINI_EURO = CardSize((44, 68), 1.9, 0.8)
 STANDARD_EURO = CardSize((59, 92), 1.9, 1)
-SHORT_EURO = CardSize((59, 90), 1.9, 1) ## More likely to print as 3×3.
+SHORT_EURO = CardSize((59, 90), 1.9, 1)  # More likely to print as 3×3.
 
 ## Mini Euro font sizes:
 FONT_TITLE_ME = FontSize(4)

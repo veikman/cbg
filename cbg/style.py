@@ -11,6 +11,7 @@ import copy
 
 from . import misc
 
+
 ## SVG code keywords.
 STYLE = 'style'
 TEXT_ANCHOR = 'text-anchor'
@@ -23,7 +24,7 @@ ALIGN_START = 'start'
 ALIGN_MIDDLE = 'middle'
 ALIGN_END = 'end'
 
-COLOR_BLACK = '#000000' ## Default in SVG.
+COLOR_BLACK = '#000000'  # Default in SVG.
 COLOR_WHITE = '#ffffff'
 COLOR_GRAY_50 = '#888888'
 
@@ -33,6 +34,7 @@ CONTRAST = 'contrast'
 ACCENT = 'accent'
 
 KEYS = (MAIN, CONTRAST, ACCENT)
+
 
 class Wardrobe():
     '''A set of fonts, colors and other presentation-layer assets.
@@ -44,14 +46,24 @@ class Wardrobe():
 
     '''
     def __init__(self, size, fonts, colors):
-        self.size = size
+        self._native_size = size
         self.fonts = fonts
         self.colors = colors
         self.reset()
         self._sanity()
         self.but = Duplicator(self)
 
+    @property
+    def size(self):
+        return self._current_size
+
+    @size.setter
+    def size(self, value):
+        self._current_size = value
+
     def reset(self):
+        self.size = self._native_size
+
         self._force_bold = False
         self._force_italic = False
         self._stroke_enabled = False
@@ -67,7 +79,7 @@ class Wardrobe():
 
     def mode_contrast(self, font=False, fill=False, stroke=False):
         self._set_color(CONTRAST, font, fill, stroke)
-        
+
     def mode_accent(self, font=False, fill=False, stroke=False):
         self._set_color(ACCENT, font, fill, stroke)
 
@@ -101,14 +113,14 @@ class Wardrobe():
 
     def color_iterable(self):
         '''Return the raw list of color strings for the current color mode.
-        
+
         Most modes will only have one color.
-        
+
         This is likely to be interesting only for gradients or
         multi-color ribbons. Not everything drawn to cards can treat
         multiple colors properly, so every other method returns the
         first color only.
-        
+
         '''
         return self.colors[self._color_mode_fill]
 
@@ -155,7 +167,7 @@ class Wardrobe():
             s = 'Color for mode "{}" (fill) is not iterable: {}.'
             raise TypeError(s.format(self._color_mode_fill,
                                      self.colors[self._color_mode_fill]))
- 
+
         if self._color_mode_stroke not in self.colors:
             s = 'Wardrobe lacks color for mode "{}" (stroke).'
             raise KeyError(s.format(self._color_mode_stroke))
@@ -163,6 +175,7 @@ class Wardrobe():
             s = 'Color for mode "{}" (stroke) is not iterable: {}.'
             raise TypeError(s.format(self._color_mode_stroke,
                                      self.colors[self._color_mode_stroke]))
+
 
 class Duplicator():
     '''A wardrobe design tool for small differences.'''
@@ -179,6 +192,7 @@ class Duplicator():
             getattr(duplicate, dictname)[key] = new_value
             return duplicate
         setattr(self, '{}_{}'.format(dictname, key), f)
+
 
 class FontFamily():
     '''An ugly band-aid over our lack of real typesetting abstractions.
@@ -199,6 +213,7 @@ class FontFamily():
 
     def __str__(self):
         return self.name
+
 
 class Type():
     def __init__(self, family, weight=None, style=None, anchor='start'):

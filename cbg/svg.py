@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+'''Objects and function that draw visual details on cards in SVG code.'''
 
 import textwrap
 import re
@@ -7,7 +8,9 @@ import logging
 import lxml.etree
 import numpy
 
+from . import elements
 from . import misc
+
 
 NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
 NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
@@ -19,18 +22,40 @@ NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
 
 LOWER_RIGHT_CORNER = 'lower_right_corner'
 
+
 class SVGPresenter():
     '''A superclass with a set of methods for producing SVG code.
-    
+
     Different subclasses of this are composited onto main card objects
     and each of their fields.
-    
+
+    Commonly called a dresser.
+
     '''
 
     def __init__(self, parent, wardrobe, size=None):
         self.parent = parent
         self.wardrobe = wardrobe
         self.size = size
+
+    def front(self):
+        '''Produce SVG XML for the front/main content side of the card.'''
+        raise NotImplementedError
+
+    def back(self):
+        '''Produce SVG XML for the back/alternate side of the card.'''
+        raise NotImplementedError
+
+    def reset(self, origin=None):
+        '''Prepare for placement.
+
+        The card-level origin is an offset relative to the page.
+        Subordinate representers use this to write coordinates.
+
+        '''
+        if origin is not None:
+            origin = numpy.array(origin)
+        self.origin = origin
 
         self._from_top = None
         self._from_bottom = None
@@ -40,20 +65,17 @@ class SVGPresenter():
             self._from_bottom = CursorFromBottom(self)
             self.point[LOWER_RIGHT_CORNER] = LowerRightCorner(self)
 
+        self.wardrobe.reset()
+
         ## Insert new elements from top by default.
         self.top_down()
-        self.origin = None
-
-    def __call__(self):
-        '''Produce SVG XML.'''
-        raise NotImplementedError
 
     @property
     def g(self):
         '''The closest SVG representer on the same card that has a size.
-       
+
         The method is named after the SVG code for a group: 'g'.
-        
+
         '''
         if self.size is not None:
             return self
@@ -78,28 +100,37 @@ class SVGPresenter():
 
     def _wrap(self, content, initial, subsequent):
         return textwrap.wrap(content, width=self._characters_per_line,
-            initial_indent=initial, subsequent_indent=subsequent)
+                             initial_indent=initial,
+                             subsequent_indent=subsequent)
 
     @property
     def _characters_per_line(self):
         '''The maximum number of characters printable on each line.'''
-        space = self.g.size.footprint[0] \
-                    - 2 * self.g.size.outer - 2 * self.g.size.inner
+        space = self.g.size.interior_width
         character_height = float(self.wardrobe.size)
         character_width = self.wardrobe.width_to_height * character_height
         return int(space / character_width)
 
+    def new_tree(self):
+        '''Create an empty SVG 'g' (group) element.
+
+        Normally, each card is represented by one of these elements.
+        An XML tree structure is built within the group by passing the tree
+        on to lower-level SVG presenters for expansion (by subelements).
+
+        '''
+        return lxml.etree.Element('g')
+
     def insert_text(self, tree, content, ii='', si='', lead='', follow=True):
         '''Insert text that can be multiple lines.
-        
+
         If inserted from the bottom of the card, the text block will
         still read from top to bottom.
-        
+
         "ii" is initial indent and "si" is subsequent indent.
-        "lead" is an eyecatching word or phrase that starts the
-        paragraph, following the initial indent. The lead is printed
-        in bold type.
-        
+        "lead" is a word or phrase that starts the paragraph, following
+        the initial indent. Leads are highlighted.
+
         '''
         card_width = self.g.size.footprint[0]
         margin = self.g.size.outer + 2 * self.g.size.inner
@@ -123,19 +154,6 @@ class SVGPresenter():
 
         if follow:
             self.g.cursor.slide(self.wardrobe.size.after_paragraph)
-
-    def _formatted_paragraph_lead(self, text_element, line, ii, lead):
-        '''Set the first part of a line in bold.'''
-        span = lxml.etree.SubElement(text_element, 'tspan',
-                            {'style': 'font-weight:bold'})
-        span.text = lead
-        try:
-            span.tail = line.split(ii + lead, 1)[1]
-        except IndexError:
-            s = 'Failed to split line "{}" after paragraph lead.' \
-                ' Lead too long for anything to fit after it?'
-            logging.critical(s.format(line, lead))
-            raise
 
     def insert_tagbox(self, tree, content):
         lines = self._wrap(content, '', '')
@@ -190,6 +208,19 @@ class SVGPresenter():
         attrib = self._attrdict_text(point)
         lxml.etree.SubElement(tree, 'text', attrib).text = content
 
+    def _formatted_paragraph_lead(self, text_element, line, ii, lead):
+        '''Set the first part of a line in bold.'''
+        span = lxml.etree.SubElement(text_element, 'tspan',
+                                     {'style': 'font-weight:bold'})
+        span.text = lead
+        try:
+            span.tail = line.split(ii + lead, 1)[1]
+        except IndexError:
+            s = 'Failed to split line "{}" after paragraph lead.' \
+                ' Lead too long for anything to fit after it?'
+            logging.critical(s.format(line, lead))
+            raise
+
     def _attrdict_text(self, position):
         ret = self.wardrobe.dict_svg_font()
         ret['x'], ret['y'] = mm(position)
@@ -220,7 +251,13 @@ class SVGPresenter():
         return ret
 
     def _true_parent(self, object_):
-        '''A fairly ugly and fragile method of looking above.'''
+        '''A fairly ugly and fragile method of looking above.
+
+        It is assumed that a higher-level SVG presenter is composited
+        onto an object reachable by a chain of "parent" attributes,
+        and named "dresser".
+
+        '''
         if hasattr(object_, 'dresser'):
             if isinstance(object_.dresser, SVGPresenter):
                 if object_.dresser.size is not None:
@@ -230,58 +267,72 @@ class SVGPresenter():
         s = 'Unable to locate true parent of {} after searching to {}.'
         raise Exception(s.format(self, object_.__class__))
 
+
 class SVGCard(SVGPresenter):
     '''An object composited to a playing card, producing SVG code.
-    
+
     When outputting SVG, the card is a generic 'g' (group) element, intended
     for assignment to a parent (a page).
-    
+
     '''
 
-    def __call__(self, origin):
-        self.wardrobe.reset()
-        
+    def front(self, origin):
+        self.reset(origin=origin)
+        tree = self.new_tree()
+
         ## jump() is used here in preference to slide() because we are
         ## working with shallow copies, whose cursors actually share state.
         self.bottom_up().jump(1.6 * self.size.outer)
         self.top_down().jump(self.size.outer)
 
-        ## The card-level origin is an offset relative to the page.
-        ## All the child representers use this to write coordinates.
-        self.origin = numpy.array(origin)
-
-        ## The tree is the group--i.e. 'g'--level XML entity, under which
-        ## all child representers create their subelements.
-        tree = lxml.etree.Element('g')
-        ## We start by adding a card frame to it, then call the children.
         self._frame(tree)
         for field in self.parent:
-            field.dresser(tree)
+            field.dresser.front(tree)
+
+        return tree
+
+    def back(self, origin):
+        '''Start a third of the way down. No frame.'''
+        self.reset(origin=origin)
+        tree = self.new_tree()
+
+        self.top_down().jump(self.size.footprint[1] / 3)
+
+        for field in self.parent:
+            field.dresser.back(tree)
 
         return tree
 
     def _frame(self, tree):
+        '''Frame an XML object (tree) in a border.'''
         attrib = self._attrdict_rect(0, self.size.footprint,
-                                 rounding=self.size.outer)
+                                     rounding=self.size.outer)
         lxml.etree.SubElement(tree, 'rect', attrib)
 
         self.wardrobe.mode_contrast(fill=True)
         attrib = self._attrdict_rect(self.size.outer,
-                                 self.size.footprint - 2 * self.size.outer,
-                                 rounding=self.size.inner)
+                                     self.size.footprint - 2 * self.size.outer,
+                                     rounding=self.size.inner)
         lxml.etree.SubElement(tree, 'rect', attrib)
 
-class SVGField(SVGPresenter):
-    '''A specialized representer of some piece of content on the card.'''
 
-    def __call__(self, tree):
+class SVGField(SVGPresenter):
+    '''Presenter of some piece of content on the card, e.g. a content field.'''
+
+    def front(self, tree):
+        self.reset()
         for paragraph in self.parent:
             self.set_up_paragraph()
             self.insert_text(tree, str(paragraph))
 
+    def back(self, tree):
+        '''By default, a field is only represented on the front of a card.'''
+        pass
+
     def set_up_paragraph(self):
         self.wardrobe.reset()
         self.top_down()
+
 
 class GraphicsElementCorner():
     '''An immobile alternative to the cursor.'''
@@ -290,7 +341,7 @@ class GraphicsElementCorner():
 
     def displace(self, offsets):
         '''Produce coordinates within card, at offsets from corner.
-        
+
         Positive offsets always move toward the next corner on each axis.
         This is to allow blind addition with card origin to get absolute
         coordinates on the page.
@@ -301,11 +352,13 @@ class GraphicsElementCorner():
         displacement = [f * o for f, o in zip(self.factors, offsets)]
         return self.position + displacement
 
+
 class LowerRightCorner(GraphicsElementCorner):
     def __init__(self, parent):
         super().__init__(parent)
         self.position = self.parent.size.footprint
         self.factors = (-1, -1)
+
 
 class GraphicsElementInsertionCursor():
     '''A direction from which to insert new elements on a card.'''
@@ -325,6 +378,7 @@ class GraphicsElementInsertionCursor():
         '''A direction-sensitive line feed.'''
         raise NotImplementedError
 
+
 class CursorFromTop(GraphicsElementInsertionCursor):
     def slide(self, height):
         '''Move first, then suggest insertion at new location.'''
@@ -335,6 +389,7 @@ class CursorFromTop(GraphicsElementInsertionCursor):
         relevant = self.slide(size)
         self.slide(envelope - size)
         return relevant
+
 
 class CursorFromBottom(GraphicsElementInsertionCursor):
     def __init__(self, *args):
@@ -351,6 +406,7 @@ class CursorFromBottom(GraphicsElementInsertionCursor):
         self.slide(envelope - size)
         return self.slide(size)
 
+
 def mm(value):
     '''Strings of coordinate pairs etc. in millimetres, for SVG.'''
     if misc.listlike(value):
@@ -358,3 +414,23 @@ def mm(value):
     else:
         ## Preserve a maximum of three decimals (0.1µm accuracy).
         return re.sub(r'\.([0-9]{0,4})[0-9]*$', r'.\1', str(value)) + 'mm'
+
+
+def stylist(dresser_class, card, text):
+    '''Instantiate the named dresser subclass and return the instance.
+
+    This function creates a temporary field object in order to
+    borrow functionality from conveniently specialized, user-defined
+    SVGPresenter subclasses.
+
+    The text argument is used to populate the temporary field.
+
+    An example use case would be a tag field presenter that controls what
+    is to be written on the back of a card, based on its tags. The text
+    on the back should have a completely different style than the tag box
+    on the front, and therefore needs to borrow a dresser in that style.
+
+    '''
+    tmp = elements.CardContentField('', dresser_class).composite(card)
+    tmp.fill(text)
+    return tmp.dresser

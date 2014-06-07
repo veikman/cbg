@@ -2,12 +2,14 @@
 
 from . import exc
 
-TITLE = 'title'
+
+TITLE = '_title'
 DATA = 'data'
+
 
 class HumanReadablePlayingCard(list):
     '''Superclass for the text content of a single playing card.
-    
+
     SVG (XML) typesetting information can be composited onto instances.
 
     The number of copies etc. is tracked at the deck level, not here.
@@ -25,11 +27,8 @@ class HumanReadablePlayingCard(list):
         except KeyError:
             self.data = self.raw
 
-        self.dresser = None ## Graphics encoder not mandatory.
+        self.dresser = None  # Graphics encoder not mandatory.
         self.process()
-
-    def __hash__(self):
-        return hash(self.title)
 
     def process(self):
         '''All the work from terse specs to completion.'''
@@ -41,6 +40,7 @@ class HumanReadablePlayingCard(list):
         return self.title
 
     def populate_fields(self, fields):
+        '''Standard procedure often called from process().'''
         for f in fields:
             ## Transform ideal, possible fields into real, empty ones.
             self.append(f.composite(self))
@@ -52,17 +52,11 @@ class HumanReadablePlayingCard(list):
             if f.markupstring in self.data:
                 f.fill(self.data[f.markupstring])
             elif f.markupstring == TITLE:
-                ## It's done this way because the card's title string
-                ## is normally used as a key, not content, in YAML.
+                ## For convenience, the string key used to identify the
+                ## card in YAML can be recycled as its title.
                 f.fill(self.title)
             else:
                 f.not_in_spec()
-
-    def _sancheck_raw_field(self, field, roster):
-        for f in roster:
-            if f.markupstring == field:
-                return True
-        return False
 
     def substitute_tokens(self, roster):
         for f in self:
@@ -74,3 +68,12 @@ class HumanReadablePlayingCard(list):
                 return f
         s = 'No such field on card {}: {}.'
         raise KeyError(s.format(self.title, string))
+
+    def _sancheck_raw_field(self, field, roster):
+        for f in roster:
+            if f.markupstring == field:
+                return True
+        return False
+
+    def __hash__(self):
+        return hash(self.title)

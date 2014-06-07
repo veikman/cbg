@@ -2,6 +2,7 @@
 
 import collections
 
+
 def listlike(object_):
     '''True if object_ is an iterable container.'''
     if isinstance(object_, collections.Iterable) \

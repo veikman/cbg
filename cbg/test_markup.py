@@ -5,6 +5,7 @@ import unittest
 from . import elements
 from . import markup
 
+
 class Tokens(unittest.TestCase):
     def setUp(self):
         self.text_nosep = elements.Paragraph(None, 'a_b_d')
@@ -27,4 +28,3 @@ class Tokens(unittest.TestCase):
     def test_overlap(self):
         self.assertFalse(self.short_noparams.apply_to(self.text_overlap))
         self.assertFalse(self.overlap_noparams.apply_to(self.text_noparams))
-        

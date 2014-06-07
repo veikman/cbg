@@ -5,9 +5,11 @@ import collections
 import copy
 import logging
 
+
 METADATA = 'DECK METADATA'
 DEFAULTS = 'DEFAULTS'
 COPIES = 'copies'
+
 
 class Deck(collections.Counter):
     '''The right number of copies of every card that belongs in a deck.'''
@@ -23,21 +25,23 @@ class Deck(collections.Counter):
         except KeyError:
             s = 'Deck specification in {} has no metadata.'
             logging.warning(s.format(self.filepath))
-            self.metadata = {DEFAULTS: {COPIES: 1}}
- 
-        default_copies = 1
-        if DEFAULTS in self.metadata:
-            if COPIES in self.metadata[DEFAULTS]:
-                default_copies = self.metadata[DEFAULTS][COPIES]
+            self.metadata = {}
 
         for cardtitle, specs in self.raw.items():
             if cardtitle == METADATA:
                 continue
-            copies = default_copies
-            if COPIES in specs:
-                copies = specs[COPIES]
             type_ = cardtype(cardtitle, specs)
+            copies = specs[COPIES] if COPIES in specs else self.default_copies
             self[type_] = copies
+
+    @property
+    def default_copies(self):
+        '''The normal number of copies of each card in the deck.
+
+        Prefer explicit metadata. In its absence, return 1.
+
+        '''
+        return self.metadata.get(DEFAULTS, {COPIES: 1}).get(COPIES, 1)
 
     def read_raw(self):
         with open(self.filepath, encoding='utf-8') as f:
@@ -59,3 +63,6 @@ class Deck(collections.Counter):
 
     def __lt__(self, other):
         return self.title < other.title
+
+    def __str__(self):
+        return '<{} deck>'.format(self.title)

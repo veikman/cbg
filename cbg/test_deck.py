@@ -6,15 +6,16 @@ import unittest.mock
 from . import card
 from . import deck
 
+
 FIRST = 'First'
 SECOND = 'Second'
 THIRD = 'Third'
 
-SPEC = { deck.METADATA: {}
-       , FIRST: {card.DATA: None, deck.COPIES: 3}
-       , SECOND: {card.DATA: None, deck.COPIES: 1}
-       , THIRD: {card.DATA: None, deck.COPIES: 2}
-       }
+SPEC = {deck.METADATA: {},
+        FIRST: {card.DATA: None, deck.COPIES: 3},
+        SECOND: {card.DATA: None, deck.COPIES: 1},
+        THIRD: {card.DATA: None, deck.COPIES: 2}}
+
 
 class CardSubclass(card.HumanReadablePlayingCard):
     def process(self):
@@ -43,6 +44,7 @@ class Card(unittest.TestCase):
     def test_attribute_preservation(self):
         c = CardSubclass('t', {card.DATA: None})
         self.assertIsNotNone(c.dresser)
+
 
 class Deck(unittest.TestCase):
     def setUp(self):

@@ -3,8 +3,9 @@
 import re
 import logging
 
+
 class Shorthand():
-    '''A possible replacement for text in specifications with other text.'''
+    '''A replacement of text in raw specifications with richer text.'''
     ## TODO: Expand/subclass/extend at SVG stage to use pictures.
 
     substring_lead_in = '_'
@@ -16,7 +17,7 @@ class Shorthand():
         self.replacement = replacement
 
     def _find_substring(self, name):
-        name = 'substring_' + name ## Avoid recursion.
+        name = 'substring_' + name  # Avoid recursion.
         if hasattr(self, name):
             ret = getattr(self, name)
         elif hasattr(self.__class__, name):
@@ -31,9 +32,11 @@ class Shorthand():
     @property
     def lead_in(self):
         return self._find_substring('lead_in')
+
     @property
     def lead_out(self):
         return self._find_substring('lead_out')
+
     @property
     def separator(self):
         return self._find_substring('separator')
@@ -104,8 +107,9 @@ class Shorthand():
         '''The expected string, with delimiters but without parameters.'''
         return self.lead_in + self.markupstring + self.lead_out
 
+
 class Interpolator(Shorthand):
-    '''Special markup that triggers an examination of a larger context.'''
+    '''Special markup that triggers examination of a larger context.'''
 
     def apply_to(self, text):
         '''Point of entry.'''

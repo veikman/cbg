@@ -5,6 +5,7 @@ import unittest
 from . import tag
 from . import exc
 
+
 class Basics(unittest.TestCase):
     def setUp(self):
         self.string = 'placeholder'
@@ -15,7 +16,8 @@ class Basics(unittest.TestCase):
         self.assertEqual(self.string, str(self.tag))
 
     def test_pretty(self):
-        self.assertEqual(self.pretty, self.tag.printstring)
+        self.assertEqual(self.pretty, str(self.tag).capitalize())
+
 
 class Sets(unittest.TestCase):
     def setUp(self):
@@ -44,6 +46,7 @@ class Sets(unittest.TestCase):
         self.assertEqual(str(self.list_), 'T1 (t2)')
         self.list_.add(self.t3)
         self.assertEqual(str(self.list_), 'T1 (t2, t3)')
+
 
 class Safeguards(unittest.TestCase):
     def setUp(self):

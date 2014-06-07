@@ -1,30 +1,42 @@
 # -*- coding: utf-8 -*-
-'''Tag support for deck-building game cards.
+'''Tag support for deck-building game cards.'''
 
-Any property of a card that does not require unique or elaborate text
-can be formulated as a tag, to be explained elsewhere.
-
-Tags can be used to control the appearance of cards, and will not,
-themselves, necessarily be printed.
-
-'''
 
 from . import elements
 from . import exc
 
+
 class Tag():
+    '''A word or phrase used to provide categorical information.
+
+    Any property of a card that does not require unique or elaborate
+    text can be formulated as a tag to be explained elsewhere.
+
+    Tags can be used as purely or partly graphical switches to control
+    the appearance of cards.
+
+    Non-printing tags will not themselves be represented in SVG.
+
+    By default, tags come in two categories: Syntactic and semantic.
+    More categories can be added by subclassing.
+
+    '''
     all_ = list()
 
-    def __init__(self, specstring, syntactic=False, printing=True,
+    def __init__(self, specstring, full_name=None,
+                 syntactic=False, printing=True,
                  subordinate_to=None, sorting_value=0):
         self.string = elements.Paragraph(self, specstring)
+        self.full_name = full_name if full_name is not None else specstring
         self.syntactic = syntactic
         self.printing = printing
 
         self.subordinate_to = subordinate_to
-        if self.subordinate_to and self.subordinate_to.syntactic is not self.syntactic:
-            s = 'Tag "{}" does not mix with its master, "{}".'
-            raise exc.SpecificationError(s.format(self, self.subordinate_to))
+        if self.subordinate_to:
+            if self.subordinate_to.syntactic is not self.syntactic:
+                s = 'Tag "{}" does not mix with its master, "{}".'
+                s = s.format(self, self.subordinate_to)
+                raise exc.SpecificationError(s)
         self.sorting_value = sorting_value
 
         ## Automatically keep track of which tags have been created for
@@ -39,11 +51,12 @@ class Tag():
         return str(self) < str(other)
 
     @property
-    def printstring(self):
-        return str(self)[0].upper() + str(self)[1:]
+    def semantic(self):
+        return not self.syntactic
 
     def substitute_tokens(self, roster):
         self.string.substitute_tokens(roster)
+
 
 class SetOfTags(set):
     '''Sorted alphabetically when refined to a string.'''
@@ -60,13 +73,15 @@ class SetOfTags(set):
         for t in sorted(self):
             if t.subordinate_to or not t.printing:
                 continue
-            s = t.printstring
+            s = str(t).capitalize()
             if t in self.masters:
-                subs = sorted([str(s) for s in self.subordinates
-                                            if s.subordinate_to == t \
-                                            and s.printing])
-                if subs:
-                    s += ' ({})'.format(', '.join(subs))
+                subordinate_strings = []
+                for so in self.subordinates:
+                    if so.subordinate_to == t and so.printing:
+                        subordinate_strings.append(str(so))
+                if subordinate_strings:
+                    subordinate_strings.sort()
+                    s += ' ({})'.format(', '.join(subordinate_strings))
             ret.append(s)
         return ', '.join(ret)
 
@@ -79,21 +94,25 @@ class SetOfTags(set):
         return {t.subordinate_to for t in self.subordinates}
 
     def syntactic(self):
-        '''A (copied) subset of self, containing only syntactic tags.'''
-        return self.__class__(self.parent, (t for t in self if t.syntactic))
+        return self.subset(lambda t: t.syntactic)
 
     def semantic(self):
-        return self.__class__(self.parent, (t for t in self if not t.syntactic))
+        return self.subset(lambda t: t.semantic)
+
+    def subset(self, selector_function):
+        '''A (copied) subset of self, containing only filtered tags.'''
+        return self.__class__(self.parent, filter(selector_function, self))
 
     def substitute_tokens(self, roster):
         for t in self:
             t.substitute_tokens(roster)
 
+
 class FieldOfTags(elements.CardContentField):
-    '''Use a SetOfTags instead of a paragraph as content.
-    
-    Do not convert markup tokens. That's done later.
-    
+    '''A content field that uses a SetOfTags as if it were a paragraph.
+
+    The field does not convert markup tokens. That's done later.
+
     '''
     def __init__(self, markupstring, dresser, roster):
         super().__init__(markupstring, dresser)

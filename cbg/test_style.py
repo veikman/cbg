@@ -7,6 +7,7 @@ import lxml.builder
 from . import style
 from . import wardrobe
 
+
 class Font(unittest.TestCase):
     def setUp(self):
         wardrobe.WARDROBE.reset()
@@ -22,19 +23,22 @@ class Font(unittest.TestCase):
 
     def test_style_stroke_regular(self):
         wardrobe.WARDROBE.emphasis(stroke=True)
-        s = 'font-family:Arial;font-size:4.0mm;stroke:#000000;stroke-width:0.08mm'
+        s = ('font-family:Arial;font-size:4.0mm;stroke:#000000;'
+             'stroke-width:0.08mm')
         self.assertEqual(self.xml.get(style.STYLE), s)
 
     def test_style_stroke_invert(self):
         wardrobe.WARDROBE.emphasis(stroke=True)
         wardrobe.WARDROBE.mode_contrast(stroke=True)
-        s = 'font-family:Arial;font-size:4.0mm;stroke:#ffffff;stroke-width:0.08mm'
+        s = ('font-family:Arial;font-size:4.0mm;stroke:#ffffff;'
+             'stroke-width:0.08mm')
         self.assertEqual(self.xml.get(style.STYLE), s)
 
     def test_style_contrast(self):
         wardrobe.WARDROBE.mode_contrast(fill=True)
         s = 'font-family:Arial;font-size:4.0mm;fill:#ffffff;'
         self.assertEqual(self.xml.get(style.STYLE), s)
+
 
 class Color(unittest.TestCase):
     def setUp(self):
@@ -54,6 +58,7 @@ class Color(unittest.TestCase):
     def test_contrast(self):
         wardrobe.WARDROBE.mode_contrast(fill=True)
         self.assertEqual(self.xml.get(style.STYLE), 'fill:#ffffff;')
+
 
 class Duplicator(unittest.TestCase):
     def test_color(self):

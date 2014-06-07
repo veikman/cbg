@@ -6,6 +6,7 @@
 '''
 
 import argparse
+import collections
 import os
 import glob
 import logging
@@ -14,6 +15,7 @@ import subprocess
 
 from . import deck
 from . import page
+
 
 class Application():
     def __init__(self, name_full, decks, name_short=None,
@@ -25,7 +27,7 @@ class Application():
         card type classes indexed by file name strings, like this:
 
         {'example': cbg.card.HumanReadablePlayingCard}
-        
+
         Note there is no path or suffix in the file name string.
 
         '''
@@ -54,29 +56,48 @@ class Application():
         s = 'Generate playing card graphics for {}.'.format(self.name_full)
         parser = argparse.ArgumentParser(description=s)
 
-        parser.add_argument('-v', '--verbose', help='extra logging',
-                            action='store_true')
+        s = 'do NOT process the fronts of cards'
+        parser.add_argument('-f', '--no_fronts', help=s, action='store_true')
+        s = 'process the backs of cards'
+        parser.add_argument('-b', '--backs', help=s, action='store_true')
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('-p', '--print', help='send output to printer',
+                           action='store_true')
+        group.add_argument('-d', '--display', help='render graphics',
+                           action='store_true')
 
         s = ('override card selection using "[<amount>:]<regex>" '
              'strings: the <amount> defaults to 1 copy of each card '
              'whose title matches any regex')
         parser.add_argument('-o', '--only', nargs='+', help=s, default=[])
 
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('-p', '--print', help='send output to printer',
-                            action='store_true')
-        group.add_argument('-d', '--display', help='render graphics',
+        parser.add_argument('-v', '--verbose', help='extra logging',
                             action='store_true')
 
         return parser
 
     def execute(self):
+        if self.args.no_fronts and not self.args.backs:
+            s = 'Not processing fronts or backs.'
+            logging.warning(s)
+            return
+
         self.delete_old_files(self.folder_svg)
         self.delete_old_files(self.folder_printing)
 
-        self.specs = [d.all_sorted for d in sorted(self.read_deck_specs())]
-        queue = self.layout()
-        queue.save(self.folder_svg)
+        self.specs = collections.OrderedDict()
+        for d in sorted(self.read_deck_specs()):
+            ## Actual deck objects are not preserved here.
+            self.specs[d.title] = d.all_sorted
+
+        sides = (('front', not self.args.no_fronts, True),
+                 ('back', self.args.backs, False))
+        for suffix, requested, layout_flag in sides:
+            if not requested:
+                continue
+            self.layout(suffix, layout_flag)
+
         if self.args.display:
             filename = sorted(glob.glob('{}/*'.format(self.folder_svg)))[0]
             ## Currently just one viewing method.
@@ -100,20 +121,18 @@ class Application():
             yield self.limit_selection(specs)
 
     def find(self, deck_title):
-        for deck in self.specs:
-            if deck.title == deck_title:
-                return deck
+        return self.specs.get(deck_title)
 
     def limit_selection(self, specs):
         '''See if a user-supplied regex matches card titles.
-        
+
         In the event of a match, don't try any more regexes on that card.
-        
+
         '''
         for card in specs:
             for restriction in self.args.only:
                 interpreted = re.split('^(\d+):', restriction, maxsplit=1)[1:]
-    
+
                 if len(interpreted) == 2:
                     ## The user has supplied a copy count.
                     copies = int(interpreted[0])
@@ -121,7 +140,7 @@ class Application():
                 else:
                     copies = 1
                     regex = restriction
-    
+
                 if re.search(regex, card.title):
                     specs[card] = copies
                     break
@@ -129,26 +148,34 @@ class Application():
 
         return specs
 
-    def layout(self):
+    def layout(self, suffix, front):
         '''Create a queue of layed-out pages, full of cards.
-        
+
         By default, the pages are A4 with all measurements specified in
         mm, despite the scale-free nature of SVG.
 
         '''
-        layouts = page.Queue(self.name_short)
-        layouts.append(page.Page())
+        page_queue = page.Queue(self.name_short, suffix)
 
-        for listing in self.specs:
+        def new_page():
+            page_queue.append(page.Page(left_to_right=front))
+
+        new_page()
+        for listing in self.specs.values():
+            ## The requisite number of copies of each card.
             for cardcopy in listing:
                 foot = cardcopy.dresser.size.footprint
-                if not layouts[-1].can_fit(foot):
-                    layouts.append(page.Page())
+                if not page_queue[-1].can_fit(foot):
+                    new_page()
 
-                xml = cardcopy.dresser(layouts[-1].free_spot(foot))
-                layouts[-1].add(foot, xml)
+                if front:
+                    xml = cardcopy.dresser.front
+                else:
+                    xml = cardcopy.dresser.back
 
-        return layouts
+                page_queue[-1].add(foot, xml(page_queue[-1].free_spot(foot)))
+
+        page_queue.save(self.folder_svg)
 
     def print_output(self):
         '''Print SVG graphics, true to scale.
@@ -156,7 +183,7 @@ class Application():
         lp prints SVG as text, not graphics. So we rasterize first.
 
         '''
-        dpi = '600' ## The capacity of my HP LaserJet 1010.
+        dpi = '600'  # The capacity of an HP LaserJet 1010.
         for svg in sorted(glob.glob('{}/*'.format(self.folder_svg))):
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
             png = os.path.join(self.folder_printing, png)

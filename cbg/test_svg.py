@@ -5,6 +5,7 @@ import numpy
 
 from . import svg
 
+
 class Millimetre(unittest.TestCase):
     def test_simple(self):
         self.assertEqual(svg.mm(1), '1mm')
@@ -14,7 +15,7 @@ class Millimetre(unittest.TestCase):
 
     def test_float_trim_negative(self):
         self.assertEqual(svg.mm(1.2), '1.2mm')
-        
+
     def test_float_trim_positive(self):
         self.assertEqual(svg.mm(1.23456789), '1.2345mm')
 
