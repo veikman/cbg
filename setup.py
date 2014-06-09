@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='CBG',
-    version='0.2.0',
+    version='0.2.1',
     description='Card-based game creation library',
     requires=['yaml', 'numpy', 'lxml'],
     author='Viktor Eikman',

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import collections
 import logging
 import os
-import string
 
 import lxml.builder
 import numpy
@@ -14,9 +14,7 @@ from . import svg
 
 class Page():
     '''A logical printable page, populated by neatly layed out cards.'''
-    number = 0
-
-    def __init__(self, dimensions=size.A4, left_to_right=True):
+    def __init__(self, dimensions=size.A4, side='', left_to_right=True):
         '''Initialize.
 
         The "left_to_right" flag denotes the direction from which cards
@@ -25,11 +23,8 @@ class Page():
 
         '''
         self.full_size = dimensions
+        self.side = side
         self.left_to_right = left_to_right
-
-        self.__class__.number += 1
-        self.number = self.__class__.number
-        logging.info('Creating page {}.'.format(self.number))
 
         head = dict()
         head['xmlns'] = svg.NAMESPACE_SVG
@@ -97,18 +92,26 @@ class Page():
         if self.row_size[1] < footprint[1]:
             self.row_size = (self.row_size[0], footprint[1])
 
-    def save(self, destination_folder, name):
-        filename = '{:03d}_{}.svg'.format(self.number, name)
+    def save(self, filepath):
+        if self.side:
+            filepath += '_' + self.side
+        filepath += '.svg'
         s = lxml.etree.tostring(self.xml, pretty_print=True)
-        with open(destination_folder + '/' + filename, mode='bw') as f:
+        with open(filepath, mode='bw') as f:
             f.write(s)
 
 
-class Queue(list):
-    def __init__(self, title, side):
+class Queue(collections.UserList):
+    '''A list of pages.
+
+    Based on UserList because it can be desirable to change the order
+    of the pages after the queue has been populated, as in the example
+    application's duplex mode.
+
+    '''
+    def __init__(self, title):
         super().__init__()
         self.title = title
-        self.side = side
 
     def save(self, destination_folder):
         try:
@@ -116,6 +119,6 @@ class Queue(list):
         except OSError:
             logging.debug('Destination folder already exists.')
 
-        for letter, page in zip(string.ascii_letters, self):
-            name = '_'.join(map(str, (self.title, letter, self.side)))
-            page.save(destination_folder, name)
+        for number, page in enumerate(self):
+            name = '{}_{:03d}'.format(self.title, number + 1)
+            page.save(os.path.join(destination_folder, name))

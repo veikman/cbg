@@ -54,24 +54,44 @@ class Application():
 
     def cli(self):
         s = 'Generate playing card graphics for {}.'.format(self.name_full)
-        parser = argparse.ArgumentParser(description=s)
+        epilog = ('Mini-language for card selection:',
+                  '[<amount>:][tag=]<regex>',
+                  'where <amount> defaults to no change (whitelist)',
+                  'or zero (blacklist)',
+                  'and <regex> normally refers to a title.',
+                  'With "tag=", <regex> must match a card tag exactly.',
+                  'The whitelist, if present, is applied first.')
+        epilog = '\n'.join(epilog)
 
-        s = 'do NOT process the fronts of cards'
-        parser.add_argument('-f', '--no_fronts', help=s, action='store_true')
-        s = 'process the backs of cards'
-        parser.add_argument('-b', '--backs', help=s, action='store_true')
+        parser = argparse.ArgumentParser(description=s, epilog=epilog)
+
+        s = 'do not include the fronts of cards'
+        parser.add_argument('--no-fronts', help=s, action='store_true')
+        s = 'include the backs of cards'
+        parser.add_argument('-B', '--backs', help=s, action='store_true')
+        s = 'card selection blacklist'
+        parser.add_argument('-b', '--blacklist', nargs='+', help=s, default=[])
+        s = 'card selection whitelist'
+        parser.add_argument('-w', '--whitelist', nargs='+', help=s, default=[])
+        s = '1 copy of each card'
+        parser.add_argument('-g', '--gallery', help=s, action='store_true')
+
+        group = parser.add_mutually_exclusive_group()
+        s = 'alternate between front sheets and back sheets'
+        group.add_argument('--duplex', help=s, action='store_true')
+        s = 'treat both sides of cards similarly'
+        group.add_argument('--neighbours', help=s, action='store_true')
 
         group = parser.add_mutually_exclusive_group()
         group.add_argument('-p', '--print', help='send output to printer',
                            action='store_true')
-        group.add_argument('-d', '--display', help='render graphics',
+        group.add_argument('-d', '--display', help='view output',
                            action='store_true')
 
-        s = ('override card selection using "[<amount>:]<regex>" '
-             'strings: the <amount> defaults to 1 copy of each card '
-             'whose title matches any regex')
-        parser.add_argument('-o', '--only', nargs='+', help=s, default=[])
-
+        parser.add_argument('-r', '--rasterize', help='bitmap output',
+                            action='store_true')
+        s = 'container format inferred from filename'
+        parser.add_argument('-f', '--file-output', help=s)
         parser.add_argument('-v', '--verbose', help='extra logging',
                             action='store_true')
 
@@ -80,8 +100,13 @@ class Application():
     def execute(self):
         if self.args.no_fronts and not self.args.backs:
             s = 'Not processing fronts or backs.'
-            logging.warning(s)
-            return
+            logging.error(s)
+            return 1
+        elif self.args.no_fronts or not self.args.backs:
+            if self.args.duplex or self.args.neighbours:
+                s = 'Option set requires both sides of each card.'
+                logging.error(s)
+                return 1
 
         self.delete_old_files(self.folder_svg)
         self.delete_old_files(self.folder_printing)
@@ -91,19 +116,53 @@ class Application():
             ## Actual deck objects are not preserved here.
             self.specs[d.title] = d.all_sorted
 
-        sides = (('front', not self.args.no_fronts, True),
-                 ('back', self.args.backs, False))
-        for suffix, requested, layout_flag in sides:
+        page_queue = page.Queue(self.name_short)
+
+        if self.args.neighbours:
+            ## Just one round of layouts. Include everything.
+            sides = (('', True, True, True),)
+        else:
+            ## Two rounds of layouts.
+            sides = (('front', not self.args.no_fronts, True, False),
+                     ('back', self.args.backs, False, True))
+        for side, requested, include_front, include_back in sides:
             if not requested:
                 continue
-            self.layout(suffix, layout_flag)
+            self.layout(page_queue, side, include_front, include_back)
+
+        if self.args.duplex:
+            ## Alternate between front sheets and back sheets.
+            midpoint = len(page_queue) // 2
+            tmp = []
+            for pair in zip(page_queue[:midpoint], page_queue[midpoint:]):
+                tmp.extend(pair)
+            page_queue.data = tmp
+        page_queue.save(self.folder_svg)
+
+        if self.args.rasterize or self.args.print:
+            self.rasterize()
+        elif self.args.file_output:
+            filepath = self.args.file_output
+            if filepath.lower().endswith('.pdf'):
+                self.convert_to_pdf(filepath)
+            else:
+                s = 'Unrecognized output filename suffix.'
+                logging.error(s)
+                return 1
 
         if self.args.display:
-            filename = sorted(glob.glob('{}/*'.format(self.folder_svg)))[0]
-            ## Currently just one viewing method.
-            subprocess.call(['eog', filename])
+            ## A very limited selection of viewer applications.
+            if self.args.file_output:
+                filename = self.args.file_output
+                viewer = 'evince'
+            else:
+                filename = sorted(glob.glob('{}/*'.format(self.folder_svg)))[0]
+                viewer = 'eog'
+            subprocess.call([viewer, filename])
         elif self.args.print:
             self.print_output()
+
+        return 0
 
     def delete_old_files(self, folder):
         for f in glob.glob('{}/*'.format(folder)):
@@ -120,74 +179,91 @@ class Application():
 
             yield self.limit_selection(specs)
 
-    def find(self, deck_title):
-        return self.specs.get(deck_title)
-
-    def limit_selection(self, specs):
-        '''See if a user-supplied regex matches card titles.
-
-        In the event of a match, don't try any more regexes on that card.
-
-        '''
-        for card in specs:
-            for restriction in self.args.only:
-                interpreted = re.split('^(\d+):', restriction, maxsplit=1)[1:]
-
-                if len(interpreted) == 2:
-                    ## The user has supplied a copy count.
-                    copies = int(interpreted[0])
-                    regex = interpreted[-1]
-                else:
-                    copies = 1
-                    regex = restriction
-
-                if re.search(regex, card.title):
-                    specs[card] = copies
-                    break
-                specs[card] = 0
-
-        return specs
-
-    def layout(self, suffix, front):
-        '''Create a queue of layed-out pages, full of cards.
+    def layout(self, page_queue, side_name, front, back):
+        '''Add to a queue of layed-out pages, full of cards.
 
         By default, the pages are A4 with all measurements specified in
         mm, despite the scale-free nature of SVG.
 
         '''
-        page_queue = page.Queue(self.name_short, suffix)
-
         def new_page():
-            page_queue.append(page.Page(left_to_right=front))
+            page_queue.append(page.Page(left_to_right=front, side=side_name))
+
+        def insert(footprint, xml_gen):
+            if not page_queue[-1].can_fit(footprint):
+                new_page()
+            xml = xml_gen(page_queue[-1].free_spot(footprint))
+            page_queue[-1].add(footprint, xml)
 
         new_page()
         for listing in self.specs.values():
             ## The requisite number of copies of each card.
             for cardcopy in listing:
                 foot = cardcopy.dresser.size.footprint
-                if not page_queue[-1].can_fit(foot):
-                    new_page()
-
                 if front:
-                    xml = cardcopy.dresser.front
+                    insert(foot, cardcopy.dresser.front)
+                if back:
+                    insert(foot, cardcopy.dresser.back)
+
+        return page_queue
+
+    def find(self, deck_title):
+        return self.specs.get(deck_title)
+
+    def limit_selection(self, specs):
+        '''Apply whitelist, blacklist and gallery mode.'''
+        for card in specs:
+            for restriction in self.args.whitelist:
+                restricted = self._apply_restriction(restriction, card)
+                if restricted is None:
+                    ## No hit.
+                    specs[card] = 0
                 else:
-                    xml = cardcopy.dresser.back
+                    ## If negative: No change from default number.
+                    if restricted >= 0:
+                        specs[card] = restricted
+                    break
+            for restriction in self.args.blacklist:
+                restricted = self._apply_restriction(restriction, card)
+                if restricted is not None:
+                    if restricted >= 0:
+                        ## Not-so-black secondary filter.
+                        specs[card] = restricted
+                    else:
+                        ## Default behaviour on hit: Blacklisted.
+                        specs[card] = 0
+                    break
 
-                page_queue[-1].add(foot, xml(page_queue[-1].free_spot(foot)))
+            if specs[card] and self.args.gallery:
+                specs[card] = 1
 
-        page_queue.save(self.folder_svg)
+        return specs
 
-    def print_output(self):
-        '''Print SVG graphics, true to scale.
-
-        lp prints SVG as text, not graphics. So we rasterize first.
-
-        '''
+    def rasterize(self):
+        '''Go from vector graphics to bitmaps.'''
         dpi = '600'  # The capacity of an HP LaserJet 1010.
         for svg in sorted(glob.glob('{}/*'.format(self.folder_svg))):
+            logging.debug('Rasterizing {}.'.format(svg))
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
             png = os.path.join(self.folder_printing, png)
             subprocess.check_call(['inkscape', '-e', png, '-d', dpi, svg])
+
+    def convert_to_pdf(self, filepath):
+        command = ['rsvg-convert', '-f', 'pdf', '-o', filepath]
+        command.extend(sorted(glob.glob('{}/*'.format(self.folder_svg))))
+        try:
+            subprocess.call(command)
+        except FileNotFoundError:
+            s = 'Missing utility for concatenation: {}.'
+            logging.error(s.format(command[0]))
+
+    def print_output(self):
+        '''Print rasterized graphics from individual page files.
+
+        lp prints SVG as text, not graphics.
+
+        '''
+        for png in sorted(glob.glob('{}/*'.format(self.folder_printing))):
             subprocess.check_call(['lp', '-o', 'media=A4', png])
 
         ## Not sure the above operation gets the scale exactly right!
@@ -207,3 +283,38 @@ class Application():
         ## margins. Perhaps this can be scripted. Apparently,
         ## rasterization in GIMP can be scripted.
         # http://porpoisehead.net/mysw/index.php?pgid=gimp_svg
+
+    def _apply_restriction(self, restriction, card):
+        '''See if a string specifying a restriction applies to a card.
+
+        If there's a hit, return the new number of copies to process.
+
+        Else return None.
+
+        '''
+        interpreted = re.split('^(\d+):', restriction, maxsplit=1)[1:]
+
+        if len(interpreted) == 2:
+            ## The user has supplied a copy count.
+            restricted_copies = int(interpreted[0])
+            regex = interpreted[-1]
+        else:
+            ## Do not change the number of copies.
+            restricted_copies = -1
+            regex = restriction
+
+        if regex.startswith('tag='):
+            regex = regex[4:]
+            try:
+                tags = card.tags
+            except AttributeError:
+                ## No member of card class named "tags".
+                ## This is true of the base class.
+                s = ('Tag-based filtering requires "tags" property.')
+                logging.critical(s)
+                raise
+            if regex in map(str, tags):
+                return restricted_copies
+        else:
+            if re.search(regex, card.title):
+                return restricted_copies
