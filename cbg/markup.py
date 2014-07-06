@@ -8,13 +8,21 @@ class Shorthand():
     '''A replacement of text in raw specifications with richer text.'''
     ## TODO: Expand/subclass/extend at SVG stage to use pictures.
 
-    substring_lead_in = '_'
+    substring_lead_in = '/'
     substring_lead_out = substring_lead_in
     substring_separator = ':'
 
-    def __init__(self, markupstring, replacement):
+    def __init__(self, markupstring, replacement, params=None):
+        '''The params argument should refer to a dictionary.
+
+        Any parameters found in that dictionary will be substituted
+        by the corresponding dictionary values. Any others will simply
+        be permitted as is.
+
+        '''
         self.markupstring = markupstring
         self.replacement = replacement
+        self.params = params
 
     def _find_substring(self, name):
         name = 'substring_' + name  # Avoid recursion.
@@ -42,7 +50,7 @@ class Shorthand():
         return self._find_substring('separator')
 
     def apply_to(self, text):
-        '''Point of entry.'''
+        '''Point of entry. Return True on a "hit", else False.'''
         return self.conclude(text, self.regular_expression(text))
 
     def regular_expression(self, text):
@@ -82,13 +90,22 @@ class Shorthand():
             ## syntax can understand it.
             return tuple(argblock.split(self.separator))
 
-    def insert_parameters(self, template, parameters):
+    def insert_parameters(self, template, raw_parameters):
+        ## Use special parameter value substitutions, if supplied.
+        parameters = []
+        for param in raw_parameters:
+            if self.params and param in self.params:
+                parameters.append(self.params[param])
+            else:
+                parameters.append(param)
+
         if len(template) == 1 and len(parameters) == 1:
             ## Assume we are dealing with a symbol that can take an amount
             ## as a prefix, but does not have to.
             return str(parameters[0]) + template
+
         try:
-            return template % parameters
+            return template.format(*parameters)
         except TypeError:
             ## The wrong amount of anchor points, presumably.
             s = 'Failed to place token parameters "{}" in "{}".'

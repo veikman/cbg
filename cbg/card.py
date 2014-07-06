@@ -69,6 +69,20 @@ class HumanReadablePlayingCard(list):
         s = 'No such field on card {}: {}.'
         raise KeyError(s.format(self.title, string))
 
+    @property
+    def tags(self):
+        '''Quick access to the card's tags (cf. the tag module).
+
+        Based on the assumption that all relevant tags are identified
+        by the string "tags" in YAML markup, and that the card has
+        such a field even if no tags are applied. May need overriding.
+
+        In the basic application model, users can filter cards based
+        on this attribute.
+
+        '''
+        return self.field_by_markupstring('tags')[0]
+
     def _sancheck_raw_field(self, field, roster):
         for f in roster:
             if f.markupstring == field:

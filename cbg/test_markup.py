@@ -8,14 +8,14 @@ from . import markup
 
 class Tokens(unittest.TestCase):
     def setUp(self):
-        self.text_nosep = elements.Paragraph(None, 'a_b_d')
-        self.text_overlap = elements.Paragraph(None, 'a_bc:_d')
-        self.text_noparams = elements.Paragraph(None, 'a_b:_d')
+        self.text_nosep = elements.Paragraph(None, 'a/b/d')
+        self.text_overlap = elements.Paragraph(None, 'a/bc:/d')
+        self.text_noparams = elements.Paragraph(None, 'a/b:/d')
         self.short_noparams = markup.Shorthand('b', 'x')
         self.overlap_noparams = markup.Shorthand('bc', 'x')
 
     def test_magic(self):
-        self.assertEqual(str(self.short_noparams), '_b_')
+        self.assertEqual(str(self.short_noparams), '/b/')
 
     def test_nosep_positive(self):
         self.assertTrue(self.short_noparams.apply_to(self.text_nosep))
