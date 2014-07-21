@@ -21,7 +21,7 @@ class Tag():
     More categories can be added by subclassing.
 
     '''
-    all_ = list()
+    registry = list()
 
     def __init__(self, specstring, full_name=None,
                  syntactic=False, printing=True,
@@ -41,7 +41,7 @@ class Tag():
 
         ## Automatically keep track of which tags have been created for
         ## a game, as a potential roster for markup recognition.
-        self.__class__.all_.append(self)
+        self.__class__.registry.append(self)
 
     def __str__(self):
         return str(self.string)
@@ -53,9 +53,6 @@ class Tag():
     @property
     def semantic(self):
         return not self.syntactic
-
-    def substitute_tokens(self, roster):
-        self.string.substitute_tokens(roster)
 
 
 class SetOfTags(set):
@@ -103,17 +100,9 @@ class SetOfTags(set):
         '''A (copied) subset of self, containing only filtered tags.'''
         return self.__class__(self.parent, filter(selector_function, self))
 
-    def substitute_tokens(self, roster):
-        for t in self:
-            t.substitute_tokens(roster)
-
 
 class FieldOfTags(elements.CardContentField):
-    '''A content field that uses a SetOfTags as if it were a paragraph.
-
-    The field does not convert markup tokens. That's done later.
-
-    '''
+    '''A content field that uses a SetOfTags as if it were a paragraph.'''
     def __init__(self, markupstring, dresser, roster):
         super().__init__(markupstring, dresser)
         self.roster = roster

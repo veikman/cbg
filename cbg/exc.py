@@ -7,6 +7,11 @@ class SpecificationError(Exception):
     pass
 
 
+class MarkupError(SpecificationError):
+    '''Failure to parse cbg-specific markup.'''
+    pass
+
+
 class PageFull(Exception):
     '''Not an error. Footprint cannot be fitted into current page layout.'''
     pass

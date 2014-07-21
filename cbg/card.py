@@ -58,10 +58,6 @@ class HumanReadablePlayingCard(list):
             else:
                 f.not_in_spec()
 
-    def substitute_tokens(self, roster):
-        for f in self:
-            f.substitute_tokens(roster)
-
     def field_by_markupstring(self, string):
         for f in self:
             if f.markupstring == string:

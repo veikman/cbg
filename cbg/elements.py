@@ -2,6 +2,7 @@
 
 import copy
 
+from . import markup
 from . import misc
 
 
@@ -44,21 +45,13 @@ class CardContentField(list):
         '''Behaviour when the raw specification does not mention the field.'''
         pass
 
-    def substitute_tokens(self, roster):
-        for p in self:
-            p.substitute_tokens(roster)
-
 
 class Paragraph():
     '''A level below a content field in organization.'''
-    def __init__(self, parent, content):
+    def __init__(self, parent, content, authority=markup.Authority):
         self.parent = parent
         self.raw = content  # Useful for comparisons against other specs.
-        self.string = str(self.raw)
-
-    def substitute_tokens(self, roster):
-        for substitution in roster:
-            substitution.apply_to(self)
+        self.string = authority.parse(str(self.raw))
 
     def __str__(self):
         return self.string
