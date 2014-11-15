@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+'''Unit tests for CBG.'''
 
 import unittest
 

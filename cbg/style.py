@@ -1,9 +1,29 @@
 # -*- coding: utf-8 -*-
 '''Style information for playing cards.
 
-The code here needs to be easily adaptable for sensitivity to context,
-as with the dual-syntax coloring of some Dominion cards (e.g. "Treasure-
-Reaction").
+This module is intended to be easily adaptable for sensitivity to
+context. An example to follow here would be the dual syntactic coloring
+of some cards in the game Dominion by Donald X. Vaccarino, such as the
+"Treasure-Reaction" hybrids.
+
+------
+
+This file is part of CBG.
+
+CBG is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+CBG is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with CBG.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2014 Viktor Eikman
 
 '''
 

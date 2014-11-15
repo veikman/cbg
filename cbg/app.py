@@ -1,7 +1,24 @@
 # -*- coding: utf-8 -*-
-'''A basic utility class for card graphics generator programs.
+'''A template utility class for card graphics generator programs.
 
-@author: Viktor Eikman <viktor.eikman@gmail.com>
+------
+
+This file is part of CBG.
+
+CBG is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+CBG is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with CBG.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2014 Viktor Eikman
 
 '''
 
@@ -17,7 +34,24 @@ from . import deck
 from . import page
 
 
+HELP_SELECT = ('Mini-language for card selection: [AMOUNT:][tag=]REGEX',
+               'AMOUNT defaults to no change (whitelist) or zero (blacklist).',
+               'REGEX with "tag=" refers to one card tag, else titles.')
+
+LICENSE = ('This card graphics application was made with the CBG library.',
+           'CBG Copyright 2014 Viktor Eikman',
+           'CBG is free software, and you are welcome to redistribute it',
+           'under the terms of the GNU General Public License.')
+
+
 class Application():
+    '''A template for a CBG console application.
+
+    Some features of this template use a variety of external programs
+    without regard to their availability, which means that portability
+    is very limited. Tested on Ubuntu GNOME with appropriate extras.
+
+    '''
     def __init__(self, name_full, decks, name_short=None,
                  folder_yaml='yaml', folder_svg='svg',
                  folder_printing='printing'):
@@ -53,17 +87,13 @@ class Application():
             logging.basicConfig(level=logging.INFO)
 
     def cli(self):
-        s = 'Generate playing card graphics for {}.'.format(self.name_full)
-        epilog = ('Mini-language for card selection:',
-                  '[<amount>:][tag=]<regex>',
-                  'where <amount> defaults to no change (whitelist)',
-                  'or zero (blacklist)',
-                  'and <regex> normally refers to a title.',
-                  'With "tag=", <regex> must match a card tag exactly.',
-                  'The whitelist, if present, is applied first.')
-        epilog = '\n'.join(epilog)
+        '''Create, but do not run, a command-line argument parser.'''
 
-        parser = argparse.ArgumentParser(description=s, epilog=epilog)
+        d = 'Generate playing card graphics for {}.'.format(self.name_full)
+        e = HELP_SELECT + ('\n',) + LICENSE
+        parser = argparse.ArgumentParser(description=d, epilog='\n'.join(e),
+                                         formatter_class=
+                                         argparse.RawDescriptionHelpFormatter)
 
         s = 'do not include the fronts of cards'
         parser.add_argument('--no-fronts', help=s, action='store_true')
@@ -71,7 +101,7 @@ class Application():
         parser.add_argument('-B', '--backs', help=s, action='store_true')
         s = 'card selection blacklist'
         parser.add_argument('-b', '--blacklist', nargs='+', help=s, default=[])
-        s = 'card selection whitelist'
+        s = 'card selection whitelist (applied before blacklist)'
         parser.add_argument('-w', '--whitelist', nargs='+', help=s, default=[])
         s = '1 copy of each card'
         parser.add_argument('-g', '--gallery', help=s, action='store_true')
@@ -240,7 +270,7 @@ class Application():
         return specs
 
     def rasterize(self):
-        '''Go from vector graphics to bitmaps.'''
+        '''Go from vector graphics to bitmaps with Inkscape.'''
         dpi = '600'  # The capacity of an HP LaserJet 1010.
         for svg in sorted(glob.glob('{}/*'.format(self.folder_svg))):
             logging.debug('Rasterizing {}.'.format(svg))
@@ -249,6 +279,7 @@ class Application():
             subprocess.check_call(['inkscape', '-e', png, '-d', dpi, svg])
 
     def convert_to_pdf(self, filepath):
+        '''Author a PDF with librsvg.'''
         command = ['rsvg-convert', '-f', 'pdf', '-o', filepath]
         command.extend(sorted(glob.glob('{}/*'.format(self.folder_svg))))
         try:
@@ -258,19 +289,18 @@ class Application():
             logging.error(s.format(command[0]))
 
     def print_output(self):
-        '''Print rasterized graphics from individual page files.
-
-        lp prints SVG as text, not graphics.
-
-        '''
+        '''Print graphics from individual page files.'''
         for png in sorted(glob.glob('{}/*'.format(self.folder_printing))):
             subprocess.check_call(['lp', '-o', 'media=A4', png])
+
+        ## NOTE: lp prints SVG as text, not graphics. Hence we use the
+        ## rasterized forms here.
 
         ## Not sure the above operation gets the scale exactly right!
         ## lp seems to like printing PNGs to fill the page.
 
-        ## Previously, the following had to be done after inkscape.
-        ## ImageMagick for PNG to PostScript:
+        ## Pre-2014, the following had to be done after Inkscape to get
+        ## the right scale. ImageMagick for PNG to PostScript:
         # convert -page A4 <png> -resize 100 <ps>
         ## Not sure if "page" flag is appropriate at this stage but it
         ## may make margins in the SVG unnecessary.
@@ -288,7 +318,6 @@ class Application():
         '''See if a string specifying a restriction applies to a card.
 
         If there's a hit, return the new number of copies to process.
-
         Else return None.
 
         '''

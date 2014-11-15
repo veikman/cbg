@@ -1,6 +1,34 @@
 # -*- coding: utf-8 -*-
-'''Tag support for deck-building game cards.'''
+'''Tag support for deck-building game cards.
 
+Any property of a card that does not require unique or elaborate
+text on the card can be reduced to a tag. The tag itself would have to
+be explained elsewhere.
+
+Tags can also be used inside CBG applications, to drive programmatic
+logic. For example, the choice of color scheme for a card can be a
+result of its tags.
+
+------
+
+This file is part of CBG.
+
+CBG is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+CBG is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with CBG.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2014 Viktor Eikman
+
+'''
 
 from . import elements
 from . import exc
@@ -9,13 +37,7 @@ from . import exc
 class Tag():
     '''A word or phrase used to provide categorical information.
 
-    Any property of a card that does not require unique or elaborate
-    text can be formulated as a tag to be explained elsewhere.
-
-    Tags can be used as purely or partly graphical switches to control
-    the appearance of cards.
-
-    Non-printing tags will not themselves be represented in SVG.
+    Non-printing tags will not be represented in SVG.
 
     By default, tags come in two categories: Syntactic and semantic.
     More categories can be added by subclassing.

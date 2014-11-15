@@ -1,5 +1,26 @@
 # -*- coding: utf-8 -*-
-'''Objects and function that draw visual details on cards in SVG code.'''
+'''Objects and functions that draw visual details on cards in SVG code.
+
+------
+
+This file is part of CBG.
+
+CBG is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+CBG is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with CBG.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2014 Viktor Eikman
+
+'''
 
 import textwrap
 import re
@@ -15,7 +36,7 @@ from . import misc
 NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
 NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
 
-## An early draft used the svgwrite module.
+## An early draft of CBG used the svgwrite module.
 ## The svgwrite module included two more namespaces by default:
 # ev = 'http://www.w3.org/2001/xml-events'
 # xlink = 'http://www.w3.org/1999/xlink'

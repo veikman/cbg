@@ -1,10 +1,6 @@
-#!/bin/bash -eu
-#: Shell script to build and install package.
-#: To be run where setup.py is.
+#!/bin/sh
+#: Shell script to build and install a Python3 package.
 
-PYTHON=python3
-PROJECT=cbg
-
-$PYTHON -m unittest discover
-sudo $PYTHON setup.py install
+python3 -m unittest discover || exit 1
+sudo python3 setup.py install
 sudo rm -rf dist build

@@ -1,5 +1,26 @@
 # -*- coding: utf-8 -*-
-'''Common card, page and font sizes.'''
+'''Common card, page and font sizes.
+
+------
+
+This file is part of CBG.
+
+CBG is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+CBG is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with CBG.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2014 Viktor Eikman
+
+'''
 
 import numpy
 
@@ -54,13 +75,13 @@ MINI_EURO = CardSize((44, 68), 1.9, 0.8)
 STANDARD_EURO = CardSize((59, 92), 1.9, 1)
 SHORT_EURO = CardSize((59, 90), 1.9, 1)  # More likely to print as 3×3.
 
-## Mini Euro font sizes:
+## Example "Mini Euro" card font sizes:
 FONT_TITLE_ME = FontSize(4)
 FONT_TAGS_ME = FontSize(2.9, after_paragraph_factor=0)
 FONT_BODY_ME = FontSize(2.9)
 FONT_FINEPRINT_ME = FontSize(2.6)
 
-## Standard Euro font sizes:
+## Example "Standard Euro" card font sizes:
 FONT_TITLE_SE = FontSize(5)
 FONT_TAGS_SE = FontSize(3.4, after_paragraph_factor=0)
 FONT_BODY_SE = FontSize(3.4)
