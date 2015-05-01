@@ -90,12 +90,12 @@ class Page():
         if space_x < card_x or space_y < card_y:
             raise exc.PrintableAreaTooSmall()
         if space_x < row_x + card_x:
-            ## The current row must be getting too long.
-            ## We need to see if the next row would work.
+            # The current row must be getting too long.
+            # We need to see if the next row would work.
             occupied_y += row_y
             row_x = 0
         if space_y < occupied_y + card_y:
-            ## A new row would not be high enough.
+            # A new row would not be high enough.
             return False
 
         x = row_x if self.left_to_right else space_x - row_x - footprint[0]
@@ -109,7 +109,7 @@ class Page():
             self._new_row()
         self.xml.append(xml)
 
-        ## Adjust envelope of current row to reflect the addition.
+        # Adjust envelope of current row to reflect the addition.
         self.row_size = (self.row_size[0] + footprint[0], self.row_size[1])
         if self.row_size[1] < footprint[1]:
             self.row_size = (self.row_size[0], footprint[1])

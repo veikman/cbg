@@ -32,7 +32,7 @@ import copy
 from . import misc
 
 
-## SVG code keywords.
+# SVG code keywords.
 STYLE = 'style'
 TEXT_ANCHOR = 'text-anchor'
 FILL = 'fill'
@@ -48,7 +48,7 @@ COLOR_BLACK = '#000000'  # Default in SVG.
 COLOR_WHITE = '#ffffff'
 COLOR_GRAY_50 = '#888888'
 
-## Internal keywords.
+# Internal keywords.
 MAIN = 'main'
 CONTRAST = 'contrast'
 ACCENT = 'accent'
@@ -119,7 +119,7 @@ class Wardrobe():
     def dict_svg_fill(self):
         color = self.colors[self._color_mode_fill][0]
         if color == COLOR_BLACK:
-            ## No need to include fill attribute if the color is SVG default.
+            # No need to include fill attribute if the color is SVG default.
             return {STYLE: ''}
         else:
             return {STYLE: 'fill:{};'.format(color)}
@@ -158,7 +158,7 @@ class Wardrobe():
         if a == ALIGN_START:
             return margin
         elif a == ALIGN_MIDDLE:
-            return space_width/2
+            return space_width / 2
         elif a == ALIGN_END:
             return space_width - margin
         else:
@@ -202,7 +202,7 @@ class Duplicator():
     def __init__(self, parent):
         for dictname in ('fonts', 'colors'):
             for key in KEYS:
-                ## Create a method for respawning parent with a difference.
+                # Create a method for respawning parent with a difference.
                 self._closure(parent, dictname, key)
 
     def _closure(self, parent, dictname, key):

@@ -64,7 +64,7 @@ class HumanReadablePlayingCard(list):
     def populate_fields(self, fields):
         '''Standard procedure often called from process().'''
         for f in fields:
-            ## Transform ideal, possible fields into real, empty ones.
+            # Transform ideal, possible fields into real, empty ones.
             self.append(f.composite(self))
         for d in self.data:
             if not self._sancheck_raw_field(d, fields):
@@ -74,8 +74,8 @@ class HumanReadablePlayingCard(list):
             if f.markupstring in self.data:
                 f.fill(self.data[f.markupstring])
             elif f.markupstring == TITLE:
-                ## For convenience, the string key used to identify the
-                ## card in YAML can be recycled as its title.
+                # For convenience, the string key used to identify the
+                # card in YAML can be recycled as its title.
                 f.fill(self.title)
             else:
                 f.not_in_spec()

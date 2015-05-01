@@ -61,8 +61,8 @@ class Tag():
                 raise exc.SpecificationError(s)
         self.sorting_value = sorting_value
 
-        ## Automatically keep track of which tags have been created for
-        ## a game, as a potential roster for markup recognition.
+        # Automatically keep track of which tags have been created for
+        # a game, as a potential roster for markup recognition.
         self.__class__.registry.append(self)
 
     def __str__(self):

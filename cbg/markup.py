@@ -85,7 +85,7 @@ class Authority():
         try:
             last_in = string.rindex(cls.lead_in)
         except ValueError:
-            ## No shorthand opener.
+            # No shorthand opener.
             return
 
         remainder = last_in + len(cls.lead_in)
@@ -115,7 +115,7 @@ class Authority():
             raise exc.MarkupError(s.format(name, shorthand))
 
         try:
-            ## Replacements can be valid shorthand. Therefore, we recurse down.
+            # Replacements can be valid shorthand. Therefore, we recurse down.
             return cls.parse(expression.replacement).format(*parameters)
         except IndexError:
             s = 'Parameters {} insufficient for expansion of "{}" to "{}".'

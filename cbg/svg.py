@@ -36,8 +36,8 @@ from . import misc
 NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
 NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
 
-## An early draft of CBG used the svgwrite module.
-## The svgwrite module included two more namespaces by default:
+# An early draft of CBG used the svgwrite module.
+# The svgwrite module included two more namespaces by default:
 # ev = 'http://www.w3.org/2001/xml-events'
 # xlink = 'http://www.w3.org/1999/xlink'
 
@@ -88,7 +88,7 @@ class SVGPresenter():
 
         self.wardrobe.reset()
 
-        ## Insert new elements from top by default.
+        # Insert new elements from top by default.
         self.top_down()
 
     @property
@@ -179,23 +179,23 @@ class SVGPresenter():
     def insert_tagbox(self, tree, content):
         lines = self._wrap(content, '', '')
 
-        ## If there is text to be drawn, draw a thick line under it,
-        ## which we can call a box. Otherwise, make the line thin, not
-        ## so box-like.
+        # If there is text to be drawn, draw a thick line under it,
+        # which we can call a box. Otherwise, make the line thin, not
+        # so box-like.
         textheight = len(lines) * self.wardrobe.size.line_height
         extra = self.g.size.inner
         boxheight = textheight + extra
 
-        ## Determine the vertical level of the line. Don't "move" yet.
-        self.g.cursor.slide(boxheight/2)
+        # Determine the vertical level of the line. Don't "move" yet.
+        self.g.cursor.slide(boxheight / 2)
         line_level = self.g.origin + (0, self.g.cursor.slide(0))
-        self.g.cursor.slide(-boxheight/2)
+        self.g.cursor.slide(-boxheight / 2)
 
-        ## Determine the two anchor points of the line.
+        # Determine the two anchor points of the line.
         a = line_level + (self.g.size.outer, 0)
         b = line_level + (self.g.size.footprint[0] - self.g.size.outer, 0)
 
-        ## Encode the line.
+        # Encode the line.
         self.wardrobe.mode_accent(stroke=True)
         attrib = self._attrdict_line(a, b, boxheight)
         if not lines:
@@ -203,14 +203,14 @@ class SVGPresenter():
         lxml.etree.SubElement(tree, 'line', attrib)
 
         if lines:
-            ## Add text to the box.
+            # Add text to the box.
             self.wardrobe.reset()
             self.wardrobe.emphasis(bold=True, stroke=True)
             self.wardrobe.mode_contrast(fill=True)
 
-            self.g.cursor.slide(extra/2)
+            self.g.cursor.slide(extra / 2)
             self.insert_text(tree, content)
-            self.g.cursor.slide(extra/2)
+            self.g.cursor.slide(extra / 2)
         else:
             self.g.cursor.slide(extra)
         self.g.cursor.slide(self.g.size.inner)
@@ -225,7 +225,7 @@ class SVGPresenter():
 
         self.wardrobe.emphasis(bold=True, stroke=True)
         self.wardrobe.mode_contrast(fill=True)
-        point = point + (0, self.wardrobe.size.base/4)
+        point = point + (0, self.wardrobe.size.base / 4)
         attrib = self._attrdict_text(point)
         lxml.etree.SubElement(tree, 'text', attrib).text = content
 
@@ -301,8 +301,8 @@ class SVGCard(SVGPresenter):
         self.reset(origin=origin)
         tree = self.new_tree()
 
-        ## jump() is used here in preference to slide() because we are
-        ## working with shallow copies, whose cursors actually share state.
+        # jump() is used here in preference to slide() because we are
+        # working with shallow copies, whose cursors actually share state.
         self.bottom_up().jump(1.6 * self.size.outer)
         self.top_down().jump(self.size.outer)
 
@@ -433,7 +433,7 @@ def mm(value):
     if misc.listlike(value):
         return [mm(axis) for axis in value]
     else:
-        ## Preserve a maximum of three decimals (0.1µm accuracy).
+        # Preserve a maximum of three decimals (0.1µm accuracy).
         return re.sub(r'\.([0-9]{0,4})[0-9]*$', r'.\1', str(value)) + 'mm'
 
 

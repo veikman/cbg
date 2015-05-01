@@ -75,13 +75,13 @@ MINI_EURO = CardSize((44, 68), 1.9, 0.8)
 STANDARD_EURO = CardSize((59, 92), 1.9, 1)
 SHORT_EURO = CardSize((59, 90), 1.9, 1)  # More likely to print as 3×3.
 
-## Example "Mini Euro" card font sizes:
+# Example "Mini Euro" card font sizes:
 FONT_TITLE_ME = FontSize(4)
 FONT_TAGS_ME = FontSize(2.9, after_paragraph_factor=0)
 FONT_BODY_ME = FontSize(2.9)
 FONT_FINEPRINT_ME = FontSize(2.6)
 
-## Example "Standard Euro" card font sizes:
+# Example "Standard Euro" card font sizes:
 FONT_TITLE_SE = FontSize(5)
 FONT_TAGS_SE = FontSize(3.4, after_paragraph_factor=0)
 FONT_BODY_SE = FontSize(3.4)

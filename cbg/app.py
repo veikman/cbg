@@ -70,7 +70,7 @@ class Application():
 
         self.name_short = name_short
         if not self.name_short:
-            ## Default to initials.
+            # Default to initials.
             s = ''.join((w[0].lower() for w in self.name_full.split()))
             self.name_short = s
 
@@ -91,9 +91,9 @@ class Application():
 
         d = 'Generate playing card graphics for {}.'.format(self.name_full)
         e = HELP_SELECT + ('\n',) + LICENSE
+        f = argparse.RawDescriptionHelpFormatter
         parser = argparse.ArgumentParser(description=d, epilog='\n'.join(e),
-                                         formatter_class=
-                                         argparse.RawDescriptionHelpFormatter)
+                                         formatter_class=f)
 
         s = 'do not include the fronts of cards'
         parser.add_argument('--no-fronts', help=s, action='store_true')
@@ -143,16 +143,16 @@ class Application():
 
         self.specs = collections.OrderedDict()
         for d in sorted(self.read_deck_specs()):
-            ## Actual deck objects are not preserved here.
+            # Actual deck objects are not preserved here.
             self.specs[d.title] = d.all_sorted
 
         page_queue = page.Queue(self.name_short)
 
         if self.args.neighbours:
-            ## Just one round of layouts. Include everything.
+            # Just one round of layouts. Include everything.
             sides = (('', True, True, True),)
         else:
-            ## Two rounds of layouts.
+            # Two rounds of layouts.
             sides = (('front', not self.args.no_fronts, True, False),
                      ('back', self.args.backs, False, True))
         for side, requested, include_front, include_back in sides:
@@ -161,7 +161,7 @@ class Application():
             self.layout(page_queue, side, include_front, include_back)
 
         if self.args.duplex:
-            ## Alternate between front sheets and back sheets.
+            # Alternate between front sheets and back sheets.
             midpoint = len(page_queue) // 2
             tmp = []
             for pair in zip(page_queue[:midpoint], page_queue[midpoint:]):
@@ -181,7 +181,7 @@ class Application():
                 return 1
 
         if self.args.display:
-            ## A very limited selection of viewer applications.
+            # A very limited selection of viewer applications.
             if self.args.file_output:
                 filename = self.args.file_output
                 viewer = 'evince'
@@ -227,7 +227,7 @@ class Application():
 
         new_page()
         for listing in self.specs.values():
-            ## The requisite number of copies of each card.
+            # The requisite number of copies of each card.
             for cardcopy in listing:
                 foot = cardcopy.dresser.size.footprint
                 if front:
@@ -246,10 +246,10 @@ class Application():
             for restriction in self.args.whitelist:
                 restricted = self._apply_restriction(restriction, card)
                 if restricted is None:
-                    ## No hit.
+                    # No hit.
                     specs[card] = 0
                 else:
-                    ## If negative: No change from default number.
+                    # If negative: No change from default number.
                     if restricted >= 0:
                         specs[card] = restricted
                     break
@@ -257,10 +257,10 @@ class Application():
                 restricted = self._apply_restriction(restriction, card)
                 if restricted is not None:
                     if restricted >= 0:
-                        ## Not-so-black secondary filter.
+                        # Not-so-black secondary filter.
                         specs[card] = restricted
                     else:
-                        ## Default behaviour on hit: Blacklisted.
+                        # Default behaviour on hit: Blacklisted.
                         specs[card] = 0
                     break
 
@@ -293,25 +293,26 @@ class Application():
         for png in sorted(glob.glob('{}/*'.format(self.folder_printing))):
             subprocess.check_call(['lp', '-o', 'media=A4', png])
 
-        ## NOTE: lp prints SVG as text, not graphics. Hence we use the
-        ## rasterized forms here.
+        # NOTE: lp prints SVG as text, not graphics. Hence we use the
+        # rasterized forms here.
 
-        ## Not sure the above operation gets the scale exactly right!
-        ## lp seems to like printing PNGs to fill the page.
+        # Not sure the above operation gets the scale exactly right!
+        # lp seems to like printing PNGs to fill the page.
 
-        ## Pre-2014, the following had to be done after Inkscape to get
-        ## the right scale. ImageMagick for PNG to PostScript:
-        # convert -page A4 <png> -resize 100 <ps>
-        ## Not sure if "page" flag is appropriate at this stage but it
-        ## may make margins in the SVG unnecessary.
-        ## 2014: Unfortunately this step stopped working at some point.
-        ## (evince says "assertion 'EV_IS_DOCUMENT (document)' failed"
-        ## when opening the PostScript file, which lp prints at
-        ## drastically reduced size.)
+        # Pre-2014, the following had to be done after Inkscape to get
+        # the right scale. ImageMagick for PNG to PostScript:
+        # $ convert -page A4 <png> -resize 100 <ps>
 
-        ## Printing PNG in GIMP respects scale, (with and?) without the
-        ## margins. Perhaps this can be scripted. Apparently,
-        ## rasterization in GIMP can be scripted.
+        # Not sure if "page" flag is appropriate at this stage but it
+        # may make margins in the SVG unnecessary.
+        # 2014: Unfortunately this step stopped working at some point.
+        # (evince says "assertion 'EV_IS_DOCUMENT (document)' failed"
+        # when opening the PostScript file, which lp prints at
+        # drastically reduced size.)
+
+        # Printing PNG in GIMP respects scale, (with and?) without the
+        # margins. Perhaps this can be scripted. Apparently,
+        # rasterization in GIMP can be scripted.
         # http://porpoisehead.net/mysw/index.php?pgid=gimp_svg
 
     def _apply_restriction(self, restriction, card):
@@ -324,11 +325,11 @@ class Application():
         interpreted = re.split('^(\d+):', restriction, maxsplit=1)[1:]
 
         if len(interpreted) == 2:
-            ## The user has supplied a copy count.
+            # The user has supplied a copy count.
             restricted_copies = int(interpreted[0])
             regex = interpreted[-1]
         else:
-            ## Do not change the number of copies.
+            # Do not change the number of copies.
             restricted_copies = -1
             regex = restriction
 
@@ -337,8 +338,8 @@ class Application():
             try:
                 tags = card.tags
             except AttributeError:
-                ## No member of card class named "tags".
-                ## This is true of the base class.
+                # No member of card class named "tags".
+                # This is true of the base class.
                 s = ('Tag-based filtering requires "tags" property.')
                 logging.critical(s)
                 raise

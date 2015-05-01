@@ -40,7 +40,7 @@ class CardContentField(list):
         self.markupstring = markupstring
         self.dresser_class = dresser_class
 
-        ## To be determined later:
+        # To be determined later:
         self.parent = None
         self.dresser = None
 
@@ -54,9 +54,9 @@ class CardContentField(list):
     def fill(self, content):
         '''Intended for use as a single point of entry.'''
         if misc.listlike(content):
-            ## Act like list.extend().
-            ## The purpose of this is to permit both lists and simple
-            ## strings in YAML markup, for most field types.
+            # Act like list.extend().
+            # The purpose of this is to permit both lists and simple
+            # strings in YAML markup, for most field types.
             parts = content  # Not sorted. Preserve rule order.
         else:
             parts = (content,)
