@@ -23,7 +23,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014 Viktor Eikman
+Copyright 2014-2015 Viktor Eikman
 
 '''
 
@@ -128,7 +128,7 @@ class Wardrobe():
         color = self.colors[self._color_mode_stroke][0]
         if thickness is None:
             thickness = self.size.stroke
-        s = 'stroke:{};stroke-width:{}mm'
+        s = 'stroke:{};stroke-width:{}'
         return {STYLE: s.format(color, thickness)}
 
     def color_iterable(self):

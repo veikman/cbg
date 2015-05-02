@@ -18,26 +18,26 @@ class Font(unittest.TestCase):
         return lxml.etree.Element('mock', wardrobe.WARDROBE.dict_svg_font())
 
     def test_style_default(self):
-        s = 'font-family:Arial;font-size:4.0mm;'
+        s = 'font-family:Arial;font-size:4.0;'
         self.assertEqual(self.xml.get(style.STYLE), s)
         self.assertEqual(self.xml.get(style.TEXT_ANCHOR), 'middle')
 
     def test_style_stroke_regular(self):
         wardrobe.WARDROBE.emphasis(stroke=True)
-        s = ('font-family:Arial;font-size:4.0mm;stroke:#000000;'
-             'stroke-width:0.08mm')
+        s = ('font-family:Arial;font-size:4.0;stroke:#000000;'
+             'stroke-width:0.08')
         self.assertEqual(self.xml.get(style.STYLE), s)
 
     def test_style_stroke_invert(self):
         wardrobe.WARDROBE.emphasis(stroke=True)
         wardrobe.WARDROBE.mode_contrast(stroke=True)
-        s = ('font-family:Arial;font-size:4.0mm;stroke:#ffffff;'
-             'stroke-width:0.08mm')
+        s = ('font-family:Arial;font-size:4.0;stroke:#ffffff;'
+             'stroke-width:0.08')
         self.assertEqual(self.xml.get(style.STYLE), s)
 
     def test_style_contrast(self):
         wardrobe.WARDROBE.mode_contrast(fill=True)
-        s = 'font-family:Arial;font-size:4.0mm;fill:#ffffff;'
+        s = 'font-family:Arial;font-size:4.0;fill:#ffffff;'
         self.assertEqual(self.xml.get(style.STYLE), s)
 
 

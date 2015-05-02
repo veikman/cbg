@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014 Viktor Eikman
+Copyright 2014-2015 Viktor Eikman
 
 '''
 
@@ -60,7 +60,7 @@ class FontSize():
         self.after_paragraph = after_paragraph_factor * self.base
 
     def dict_svg(self):
-        return {style.STYLE: 'font-size:{};'.format(svg.mm(float(self)))}
+        return {style.STYLE: 'font-size:{};'.format(svg.rounded(float(self)))}
 
     def __int__(self):
         return int(self.base)

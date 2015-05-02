@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014 Viktor Eikman
+Copyright 2014-2015 Viktor Eikman
 
 '''
 
@@ -39,7 +39,7 @@ HELP_SELECT = ('Mini-language for card selection: [AMOUNT:][tag=]REGEX',
                'REGEX with "tag=" refers to one card tag, else titles.')
 
 LICENSE = ('This card graphics application was made with the CBG library.',
-           'CBG Copyright 2014 Viktor Eikman',
+           'CBG Copyright 2014-2015 Viktor Eikman',
            'CBG is free software, and you are welcome to redistribute it',
            'under the terms of the GNU General Public License.')
 

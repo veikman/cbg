@@ -18,13 +18,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014 Viktor Eikman
+Copyright 2014-2015 Viktor Eikman
 
 '''
 
 import textwrap
-import re
 import logging
+import math
 
 import lxml.etree
 import numpy
@@ -45,7 +45,7 @@ LOWER_RIGHT_CORNER = 'lower_right_corner'
 
 
 class SVGPresenter():
-    '''A superclass with a set of methods for producing SVG code.
+    '''An abstract base class with a set of methods for producing SVG code.
 
     Different subclasses of this are composited onto main card objects
     and each of their fields.
@@ -199,7 +199,7 @@ class SVGPresenter():
         self.wardrobe.mode_accent(stroke=True)
         attrib = self._attrdict_line(a, b, boxheight)
         if not lines:
-            attrib['stroke-dasharray'] = '3mm, 3mm'
+            attrib['stroke-dasharray'] = '3, 3'
         lxml.etree.SubElement(tree, 'line', attrib)
 
         if lines:
@@ -244,31 +244,34 @@ class SVGPresenter():
 
     def _attrdict_text(self, position):
         ret = self.wardrobe.dict_svg_font()
-        ret['x'], ret['y'] = mm(position)
-        ret['{' + NAMESPACE_XML + '}space'] = 'preserve'
+        ret['x'], ret['y'] = rounded(position)
+        ret.update(self.g.cursor.transform.attrdict(position=position))
+        ret['{{{}}}space'.format(NAMESPACE_XML)] = 'preserve'
         return ret
 
     def _attrdict_line(self, a, b, width):
         if width is None:
             width = self.inner
         ret = self.wardrobe.dict_svg_stroke(width)
-        ret['x1'], ret['y1'] = mm(a)
-        ret['x2'], ret['y2'] = mm(b)
+        ret['x1'], ret['y1'] = rounded(a)
+        ret['x2'], ret['y2'] = rounded(b)
         return ret
 
     def _attrdict_rect(self, offset, size, rounding=None):
         ret = self.wardrobe.dict_svg_fill()
-        ret['width'], ret['height'] = mm(size)
-        ret['x'], ret['y'] = mm(self.origin + offset)
+        ret['width'], ret['height'] = rounded(size)
+        position = self.origin + offset
+        ret['x'], ret['y'] = rounded(position)
+##        ret.update(self.g.cursor.transform.attrdict(position))
         if rounding is not None:
-            ret['rx'] = mm(rounding)
-            ret['ry'] = mm(rounding)
+            ret['rx'] = rounded(rounding)
+            ret['ry'] = rounded(rounding)
         return ret
 
     def _attrdict_circle(self, position, radius):
         ret = self.wardrobe.dict_svg_fill()
-        ret['cx'], ret['cy'] = mm(position)
-        ret['r'] = mm(radius)
+        ret['cx'], ret['cy'] = rounded(position)
+        ret['r'] = rounded(radius)
         return ret
 
     def _true_parent(self, object_):
@@ -382,10 +385,61 @@ class LowerRightCorner(GraphicsElementCorner):
 
 
 class GraphicsElementInsertionCursor():
+    class Transformer(list):
+        '''A list of standard SVG transformations to apply.'''
+
+        class Transformation(list):
+            def __init__(self, name, *args, extended_locally=False):
+                self._name = name
+                self._extended_locally = extended_locally
+                super().__init__(args)
+
+            def to_string(self, position):
+                data = self[:]
+                if self._extended_locally and position is not None:
+                    data.extend(position)
+                return '{}({})'.format(self._name, ','.join(map(str, data)))
+
+        def _new(self, *args, **kwargs):
+            self.append(self.Transformation(*args, **kwargs))
+
+        def matrix(self, a=1, b=0, c=0, d=1, e=0, f=0):
+            self._new('matrix', a, b, c, d, e, f)
+
+        def translate(self, x=0, y=0):
+            self._new('translate', x, y)
+
+        def scale(self, x=1, y=None):
+            self._new('scale', x, x if y is None else y)
+
+        def rotate(self, a, x=None, y=None):
+            if x is None and y is None:
+                # Rotation about the origin of the coordinate system
+                # is inherently undesirable for creating printable cards.
+                # Therefore, a hook is created for rotating about self.
+                self._new('rotate', a, extended_locally=True)
+            elif x is not None and y is not None:
+                self._new('rotate', a, x, y)
+            else:
+                raise ValueError('Rotation around a point requires x and y.')
+
+        def skew_x(self, a):
+            self._new('skewX', a)
+
+        def skew_y(self, a):
+            self._new('skewY', a)
+
+        def attrdict(self, position=None):
+            if self:
+                iterable = (t.to_string(position) for t in self)
+                return {'transform': ' '.join(iterable)}
+            return {}
+
     '''A direction from which to insert new elements on a card.'''
     def __init__(self, parent):
         self.parent = parent
         self.displacement = 0
+        self.transform = self.Transformer()
         self.flip_line_order = False
 
     def jump(self, position):
@@ -428,13 +482,17 @@ class CursorFromBottom(GraphicsElementInsertionCursor):
         return self.slide(size)
 
 
-def mm(value):
-    '''Strings of coordinate pairs etc. in millimetres, for SVG.'''
+def rounded(value):
+    '''Coordinate pairs etc. reduced to 0.1 µm accuracy for readability.
+
+    Measurements are also converted to strings, as a convenience for
+    working with lxml.
+
+    '''
     if misc.listlike(value):
-        return [mm(axis) for axis in value]
+        return [rounded(axis) for axis in value]
     else:
-        # Preserve a maximum of three decimals (0.1µm accuracy).
-        return re.sub(r'\.([0-9]{0,4})[0-9]*$', r'.\1', str(value)) + 'mm'
+        return str(round(value, 4))
 
 
 def stylist(dresser_class, card, text):

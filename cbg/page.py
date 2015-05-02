@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014 Viktor Eikman
+Copyright 2014-2015 Viktor Eikman
 
 '''
 
@@ -53,7 +53,20 @@ class Page():
         head['xml'] = svg.NAMESPACE_XML
         head['baseProfile'] = 'full'
         head['version'] = '1.1'
-        head['width'], head['height'] = svg.mm(self.full_size.footprint)
+
+        # The size of the page is explicitly specified in millimetres.
+        x, y = self.full_size.footprint
+        head['width'] = '{}mm'.format(x)
+        head['height'] = '{}mm'.format(y)
+
+        # Because this library is print-friendly, we want all objects
+        # on the page to have their measurements in mm as well.
+        # This can be done explicitly for most measurements, but not all,
+        # e.g. not for coordinates to rotate around:
+        # "transform=rotate(a,x,y)" <-- real-world don't work for x, y.
+        # For this reason, we apply a view box at the page level, which
+        # equates all subordinate user-space coordinates to millimetres.
+        head['viewBox'] = ' '.join(map(str, (0, 0, x, y)))
 
         self.xml = lxml.builder.E.svg(lxml.builder.E.defs, head)
         self.printable = self.full_size.footprint - 2 * self.full_size.margins
