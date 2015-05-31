@@ -170,7 +170,8 @@ class Application():
         page_queue.save(self.folder_svg)
 
         if self.args.rasterize or self.args.print:
-            self.rasterize()
+            if not self.rasterize():
+                return 1
         elif self.args.file_output:
             filepath = self.args.file_output
             if filepath.lower().endswith('.pdf'):
@@ -271,12 +272,26 @@ class Application():
 
     def rasterize(self):
         '''Go from vector graphics to bitmaps with Inkscape.'''
+        try:
+            os.mkdir(self.folder_printing)
+        except FileExistsError:
+            pass
+        except Exception as e:
+            s = 'Unable to create specified bitmap/printing directory "{}": {}'
+            logging.error(s.format(self.folder_printing, repr(e)))
+            return False
+
         dpi = '600'  # The capacity of an HP LaserJet 1010.
         for svg in sorted(glob.glob('{}/*'.format(self.folder_svg))):
             logging.debug('Rasterizing {}.'.format(svg))
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
             png = os.path.join(self.folder_printing, png)
-            subprocess.check_call(['inkscape', '-e', png, '-d', dpi, svg])
+            try:
+                subprocess.check_call(['inkscape', '-e', png, '-d', dpi, svg])
+            except subprocess.CalledProcessError:
+                return False
+
+        return True
 
     def convert_to_pdf(self, filepath):
         '''Author a PDF with librsvg.'''
