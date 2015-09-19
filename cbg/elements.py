@@ -24,7 +24,6 @@ Copyright 2014-2015 Viktor Eikman
 
 import copy
 
-from . import markup
 from . import misc
 
 
@@ -70,10 +69,10 @@ class CardContentField(list):
 
 class Paragraph():
     '''A level below a content field in organization.'''
-    def __init__(self, parent, content, authority=markup.Authority):
+    def __init__(self, parent, content):
         self.parent = parent
-        self.raw = content  # Useful for comparisons against other specs.
-        self.string = authority.parse(str(self.raw))
+        self.raw = content  # Useful for comparisons between specs.
+        self.string = str(self.raw)
 
     def __str__(self):
         return self.string
