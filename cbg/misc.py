@@ -31,3 +31,29 @@ def listlike(object_):
             and not isinstance(object_, str)):
         return True
     return False
+
+
+def make_listlike(object_):
+    '''Package object in a tuple if not already listlike.
+
+    The purpose of this is to permit both lists and simple
+    strings in YAML markup, for most field types.
+
+    '''
+    if listlike(object_):
+        return object_
+    return (object_,)
+
+
+def rounded(value):
+    '''Round off numbers, for e.g. SVG output.
+
+    Coordinate pairs etc. reduced to 0.1 µm accuracy for readability.
+
+    Measurements are also converted to strings, as a convenience for
+    working with lxml.
+
+    '''
+    if listlike(value):
+        return [rounded(axis) for axis in value]
+    return str(round(value, 4))

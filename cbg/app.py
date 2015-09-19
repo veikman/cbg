@@ -30,8 +30,8 @@ import logging
 import re
 import subprocess
 
-from . import deck
-from . import page
+import cbg.deck as deck
+import cbg.page as page
 
 
 HELP_SELECT = ('Mini-language for card selection: [AMOUNT:][tag=]REGEX',
@@ -43,6 +43,10 @@ LICENSE = ('This card graphics application was made with the CBG library.',
            'CBG is free software, and you are welcome to redistribute it',
            'under the terms of the GNU General Public License.')
 
+SPEC_FORMAT_YAML = 'yaml'
+
+SUPPORTED_SPEC_FORMATS = (SPEC_FORMAT_YAML,)
+
 
 class Application():
     '''A template for a CBG console application.
@@ -53,7 +57,8 @@ class Application():
 
     '''
     def __init__(self, name_full, decks, name_short=None,
-                 folder_yaml='yaml', folder_svg='svg',
+                 spec_format=SPEC_FORMAT_YAML,
+                 folder_specs='specs', folder_svg='svg',
                  folder_printing='printing'):
         '''Constructor.
 
@@ -74,7 +79,9 @@ class Application():
             s = ''.join((w[0].lower() for w in self.name_full.split()))
             self.name_short = s
 
-        self.folder_yaml = folder_yaml
+        assert spec_format in SUPPORTED_SPEC_FORMATS
+        self.spec_format = spec_format
+        self.folder_specs = folder_specs
         self.folder_svg = folder_svg
         self.folder_printing = folder_printing
 
@@ -144,7 +151,7 @@ class Application():
         self.specs = collections.OrderedDict()
         for d in sorted(self.read_deck_specs()):
             # Actual deck objects are not preserved here.
-            self.specs[d.title] = d.all_sorted
+            self.specs[d.title] = d.all_sorted()
 
         page_queue = page.Queue(self.name_short)
 
@@ -201,14 +208,23 @@ class Application():
             os.remove(f)
 
     def read_deck_specs(self):
+        if self.spec_format == SPEC_FORMAT_YAML:
+            import yaml
+
         for filename_base, cardtype in self.decks.items():
-            path = '{}/{}.yaml'.format(self.folder_yaml, filename_base)
-            specs = deck.Deck(filename_base, path, cardtype)
+            filepath = '{}/{}.{}'.format(self.folder_specs, filename_base,
+                                         self.spec_format)
+
+            with open(filepath, encoding='utf-8') as f:
+                if self.spec_format == SPEC_FORMAT_YAML:
+                    raw = yaml.load(f)
+
+            deck_ = deck.Deck(cardtype, raw, title=filename_base)
 
             s = '{} cards in "{}" deck.'
-            logging.debug(s.format(len(specs), specs.title))
+            logging.debug(s.format(len(deck_), deck_.title))
 
-            yield self.limit_selection(specs)
+            yield self.limit_selection(deck_)
 
     def layout(self, page_queue, side_name, front, back):
         '''Add to a queue of layed-out pages, full of cards.
@@ -230,11 +246,11 @@ class Application():
         for listing in self.specs.values():
             # The requisite number of copies of each card.
             for cardcopy in listing:
-                foot = cardcopy.dresser.size.footprint
+                foot = cardcopy.presenter.size.footprint
                 if front:
-                    insert(foot, cardcopy.dresser.front)
+                    insert(foot, cardcopy.presenter.front)
                 if back:
-                    insert(foot, cardcopy.dresser.back)
+                    insert(foot, cardcopy.presenter.back)
 
         return page_queue
 

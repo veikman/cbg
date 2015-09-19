@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''All exceptions in the package.
+'''Selected OOP font representations. Refer to the style module.
 
 ------
 
@@ -22,22 +22,8 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
+import cbg.style
 
-class SpecificationError(Exception):
-    '''A human error in the design of a specification for a deck.'''
-    pass
-
-
-class MarkupError(SpecificationError):
-    '''Failure to parse CBG-specific markup.'''
-    pass
-
-
-class PageFull(Exception):
-    '''Not an error. Footprint cannot be fitted into current page layout.'''
-    pass
-
-
-class PrintableAreaTooSmall(Exception):
-    '''Footprint too large for page type. Layout impossible.'''
-    pass
+ARIAL = cbg.style.FontFamily('Arial', 0.6)
+BITSTREAM_CHARTER = cbg.style.FontFamily('Bitstream Charter', 0.52)
+BITSTREAM_VERA_SANS = cbg.style.FontFamily('Bitstream Vera Sans', 0.6)

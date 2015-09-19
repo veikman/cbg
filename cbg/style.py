@@ -29,30 +29,18 @@ Copyright 2014-2015 Viktor Eikman
 
 import copy
 
-from . import misc
+import cbg.misc as misc
+import cbg.keys as keys
 
 
-# SVG code keywords.
-STYLE = 'style'
-TEXT_ANCHOR = 'text-anchor'
-FILL = 'fill'
+# Internal keywords, some of which incidentally match SVG codes.
+BOLD = keys.FONT_BOLD
+ITALIC = keys.FONT_ITALIC
 
-BOLD = 'bold'
-ITALIC = 'italic'
-
-ALIGN_START = 'start'
-ALIGN_MIDDLE = 'middle'
-ALIGN_END = 'end'
-
-COLOR_BLACK = '#000000'  # Default in SVG.
-COLOR_WHITE = '#ffffff'
-COLOR_GRAY_50 = '#888888'
-
-# Internal keywords.
+# Purely internal keywords.
 MAIN = 'main'
 CONTRAST = 'contrast'
 ACCENT = 'accent'
-
 KEYS = (MAIN, CONTRAST, ACCENT)
 
 
@@ -60,15 +48,22 @@ class Wardrobe():
     '''A set of fonts, colors and other presentation-layer assets.
 
     The "fonts" and "colors" arguments are both expected to be
-    dictionaries whose keys are the mode strings of this module,
-    and whose values are tuples or similar iterables, containing
-    at least one appropriate object for each mode likely to be used.
+    dictionaries whose keys are the mode strings of this module.
 
     '''
     def __init__(self, size, fonts, colors):
         self._native_size = size
         self.fonts = fonts
-        self.colors = colors
+
+        def prepare_transitions(mapping):
+            '''Package values in a tuple, for color gradients etc.'''
+            for key, value in mapping.items():
+                if not misc.listlike(value):
+                    mapping[key] = (value,)
+            return mapping
+
+        self.colors = prepare_transitions(colors)
+
         self.reset()
         self._sanity()
         self.but = Duplicator(self)
@@ -106,30 +101,30 @@ class Wardrobe():
     def dict_svg_font(self):
         font = copy.copy(self.fonts[self._font_mode])
         if self._force_bold:
-            font.weight = BOLD
+            font.weight = keys.FONT_BOLD
         if self._force_italic:
-            font.style = ITALIC
+            font.style = keys.FONT_ITALIC
         attrib = font.dict_svg()
-        attrib[STYLE] += self.size.dict_svg()[STYLE]
-        attrib[STYLE] += self.dict_svg_fill()[STYLE]
+        attrib[keys.STYLE] += self.size.dict_svg()[keys.STYLE]
+        attrib[keys.STYLE] += self.dict_svg_fill()[keys.STYLE]
         if self._stroke_enabled:
-            attrib[STYLE] += self.dict_svg_stroke()[STYLE]
+            attrib[keys.STYLE] += self.dict_svg_stroke()[keys.STYLE]
         return attrib
 
     def dict_svg_fill(self):
         color = self.colors[self._color_mode_fill][0]
-        if color == COLOR_BLACK:
-            # No need to include fill attribute if the color is SVG default.
-            return {STYLE: ''}
+        if color == '#000000':
+            # SVG default. No need to include fill attribute.
+            return {keys.STYLE: ''}
         else:
-            return {STYLE: 'fill:{};'.format(color)}
+            return {keys.STYLE: 'fill:{};'.format(color)}
 
     def dict_svg_stroke(self, thickness=None):
         color = self.colors[self._color_mode_stroke][0]
         if thickness is None:
             thickness = self.size.stroke
         s = 'stroke:{};stroke-width:{}'
-        return {STYLE: s.format(color, thickness)}
+        return {keys.STYLE: s.format(color, thickness)}
 
     def color_iterable(self):
         '''Return the raw list of color strings for the current color mode.
@@ -149,17 +144,17 @@ class Wardrobe():
         '''Used to compute when to wrap a line of text.'''
         font = self.fonts[self._font_mode]
         factor = font.family.width_to_height
-        if self._force_italic or font.weight == BOLD:
+        if self._force_italic or font.weight == keys.FONT_BOLD:
             factor *= font.family.bold_to_roman
         return factor
 
     def horizontal(self, space_width, margin=0):
         a = self.fonts[self._font_mode].anchor
-        if a == ALIGN_START:
+        if a == keys.ALIGN_START:
             return margin
-        elif a == ALIGN_MIDDLE:
+        elif a == keys.ALIGN_MIDDLE:
             return space_width / 2
-        elif a == ALIGN_END:
+        elif a == keys.ALIGN_END:
             return space_width - margin
         else:
             s = 'Unrecognized SVG text anchor (alignment): "{}".'
@@ -253,4 +248,4 @@ class Type():
         return base
 
     def dict_svg(self):
-        return {STYLE: self.stylestring, TEXT_ANCHOR: self.anchor}
+        return {keys.STYLE: self.stylestring, keys.TEXT_ANCHOR: self.anchor}
