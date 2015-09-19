@@ -22,65 +22,98 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
-import yaml
 import collections
 import copy
-import logging
+import itertools
+
+import cbg.elements
 
 
-METADATA = 'DECK METADATA'
-DEFAULTS = 'DEFAULTS'
-COPIES = 'copies'
-
-
-class Deck(collections.Counter):
+class Deck(cbg.elements.DerivedFromSpec, collections.Counter):
     '''The right number of copies of every card that belongs in a deck.'''
 
-    def __init__(self, decktitle, filepath, cardtype):
+    _untitled_base = 'untitled deck'
+    _untitled_iterator = itertools.count(start=1)
+
+    def __init__(self, card_cls, raw, title=None):
         super().__init__()
-        self.title = decktitle
-        self.filepath = filepath
-        self.raw = self.read_raw()
+        self.title = title
 
-        try:
-            self.metadata = self.raw[METADATA]
-        except KeyError:
-            s = 'Deck specification in {} has no metadata.'
-            logging.warning(s.format(self.filepath))
-            self.metadata = {}
+        self.metadata = {}
+        if isinstance(raw, collections.abc.Mapping):
+            self.metadata = raw.get(self.key_metadata, {})
 
-        for cardtitle, specs in self.raw.items():
-            if cardtitle == METADATA:
-                continue
-            type_ = cardtype(cardtitle, specs)
-            copies = specs[COPIES] if COPIES in specs else self.default_copies
-            self[type_] = copies
+            try:
+                cards = raw[self.key_data]
+            except KeyError:
+                cards = {k: v for k, v in raw.items()
+                         if k != self.key_metadata}
 
-    @property
-    def default_copies(self):
-        '''The normal number of copies of each card in the deck.
+        elif isinstance(raw, collections.abc.Sequence):
+            cards = raw
 
-        Prefer explicit metadata. In its absence, return 1.
+        else:
+            s = 'Cannot interpret {} as a deck specification.'
+            raise self.SpecificationError(s.format(type(raw)))
 
-        '''
-        return self.metadata.get(DEFAULTS, {COPIES: 1}).get(COPIES, 1)
+        self.title = self.metadata.get(self.key_title, self.title)
+        if self.title is None:
+            self.title = self._generate_title()
 
-    def read_raw(self):
-        with open(self.filepath, encoding='utf-8') as f:
-            return yaml.load(f)
+        self._populate(card_cls, cards)
 
-    @property
+    def _populate(self, card_cls, cards):
+        '''Infer the rough data structure of the specification.'''
+        if not cards:
+            raise self.SpecificationError('No cards.')
+
+        if isinstance(cards, collections.abc.Mapping):
+            for key, value in cards.items():
+                self._add_card_type(card_cls, cards[key],
+                                    backup_title=str(key))
+        else:
+            # List-like, continuing from the type check in __init__().
+            for item in cards:
+                self._add_card_type(card_cls, item)
+
+    def _add_card_type(self, card_cls, card_spec, backup_title=None):
+        '''Digest a bit of metadata and hand the rest off to the card class.'''
+
+        # Prefer explicit mention of the number of copies.
+        copies = card_spec.get(self.key_metadata, {}).get(self.key_copies)
+
+        if copies is None:
+            copies = self.metadata.get(self.key_defaults,
+                                       {}).get(self.key_copies)
+
+        # Discard card-level metadata, if any.
+        card_spec.pop(self.key_metadata, None)
+        card_spec = card_spec.get(self.key_data, card_spec)
+
+        if backup_title and self.key_title not in card_spec:
+            card_spec[card_cls.key_title] = backup_title
+
+        if copies is None:
+            copies = card_spec.get(self.key_copies)
+            if copies is not None:
+                del card_spec[self.key_copies]
+
+        if copies is None:
+            # Not found in the specifications.
+            copies = 1
+
+        self[card_cls(**card_spec)] = copies
+
     def singles_sorted(self):
         keys = {f.sorting_keys: f for f in self}
         return [keys[k] for k in sorted(keys)]
 
-    @property
     def all_sorted(self):
         '''Produce literal copies of all cards in the deck.'''
         ret = list()
-        for type_ in self.singles_sorted:
-            for copy_ in range(0, self[type_]):
-                ret.append(copy.copy(type_))
+        for card_type in self.singles_sorted():
+            for copy_ in range(0, self[card_type]):
+                ret.append(copy.copy(card_type))
         return ret
 
     def __lt__(self, other):

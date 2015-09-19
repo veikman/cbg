@@ -30,26 +30,61 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
-from . import elements
-from . import exc
+import cbg.keys as keys
+import cbg.elements as elements
 
 
 class Tag():
-    '''A word or phrase used to provide categorical information.
+    '''A word or phrase used to provide categorical information.'''
 
-    Non-printing tags will not be represented in SVG.
+    registry = list()
+    paragraph_class = elements.Paragraph
 
-    By default, tags come in two categories: Syntactic and semantic.
-    More categories can be added by subclassing.
+    class TaggingError(Exception):
+        pass
+
+    def __init__(self, key):
+        '''The raw text key may be active markup.
+
+        A temporary paragraph object is used to process that string,
+        hopefully into a more human-readable name.
+
+        '''
+        as_paragraph = self.paragraph_class(key)
+        self.key = as_paragraph.raw
+        self.string = as_paragraph.string
+
+        # Automatically keep track of which tags have been created for
+        # a game, as a roster for specification recognition.
+        self.__class__.registry.append(self)
+
+    def __str__(self):
+        return str(self.string)
+
+    def __lt__(self, other):
+        '''Tags sort alphabetically.'''
+        return str(self) < str(other)
+
+
+class AdvancedTag(Tag):
+    '''An alternate tag with some oft-useful features.
+
+    These tags are either syntactic or semantic, with respect to their
+    rule systems, and can be hierarchically related, weighted for
+    sorting, and explicitly named.
+
+    These tags can also be non-printing, in which case they should
+    be ignored by graphical presenters.
 
     '''
-    registry = list()
 
-    def __init__(self, specstring, full_name=None,
+    def __init__(self, key, full_name=None,
                  syntactic=False, printing=True,
                  subordinate_to=None, sorting_value=0):
-        self.string = elements.Paragraph(self, specstring)
-        self.full_name = full_name if full_name is not None else specstring
+        super().__init__(key)
+
+        self.full_name = full_name if full_name is not None else self.string
+
         self.syntactic = syntactic
         self.printing = printing
 
@@ -58,19 +93,12 @@ class Tag():
             if self.subordinate_to.syntactic is not self.syntactic:
                 s = 'Tag "{}" does not mix with its master, "{}".'
                 s = s.format(self, self.subordinate_to)
-                raise exc.SpecificationError(s)
+                raise self.TaggingError(s)
+
+        # The sorting value is intended not to sort tags as such, but
+        # to sort decks of cards for logical presentation.
+        # This requires an override of the "sorting_keys" property of cards.
         self.sorting_value = sorting_value
-
-        # Automatically keep track of which tags have been created for
-        # a game, as a potential roster for markup recognition.
-        self.__class__.registry.append(self)
-
-    def __str__(self):
-        return str(self.string)
-
-    def __lt__(self, other):
-        '''Tags in printed lists are sorted alphabetically.'''
-        return str(self) < str(other)
 
     @property
     def semantic(self):
@@ -78,14 +106,28 @@ class Tag():
 
 
 class SetOfTags(set):
-    '''Sorted alphabetically when refined to a string.'''
-    def __init__(self, parent, tags):
-        self.parent = parent
+    '''A set of tags, kept unique by the standard data type.
+
+    Sorted alphabetically when refined to a string.
+
+    '''
+    def __str__(self):
+        return ', '.join(sorted(self))
+
+    def subset(self, selector_function):
+        '''A (copied) subset of self, containing only filtered tags.'''
+        return self.__class__(filter(selector_function, self))
+
+
+class SetOfAdvancedTags(SetOfTags):
+    '''Support for AdvancedTag features.'''
+
+    def __init__(self, tags):
         super().__init__(tags)
         for t in self.subordinates:
             if t.subordinate_to not in self:
                 s = 'Tag "{}" lacks master "{}".'
-                raise exc.SpecificationError(s.format(t, t.subordinate_to))
+                raise Tag.TaggingError(s.format(t, t.subordinate_to))
 
     def __str__(self):
         ret = list()
@@ -118,30 +160,26 @@ class SetOfTags(set):
     def semantic(self):
         return self.subset(lambda t: t.semantic)
 
-    def subset(self, selector_function):
-        '''A (copied) subset of self, containing only filtered tags.'''
-        return self.__class__(self.parent, filter(selector_function, self))
-
 
 class FieldOfTags(elements.CardContentField):
-    '''A content field that uses a SetOfTags as if it were a paragraph.'''
-    def __init__(self, markupstring, dresser, roster):
-        super().__init__(markupstring, dresser)
-        self.roster = roster
+    '''A content field that uses a set of tags as a paragraph.'''
 
-    def fill(self, content):
-        '''Take a list of strings. Convert to actual tag objects.'''
-        super().append(SetOfTags(self, {self._tagify(s) for s in content}))
+    key = keys.TAGS
+    tag_class = Tag  # Expected to hold a registry of applicable tags.
+    paragraph_class = SetOfTags
+
+    def in_spec(self, content):
+        '''Take an iterable of strings. Convert to tag objects.'''
+        def _vet_string(string):
+            for tag in self.tag_class.registry:
+                if string == tag.key:
+                    return tag
+
+            s = 'Tag markup "{}" does not appear in roster.'
+            raise Tag.TaggingError(s.format(string))
+
+        self.append(self.paragraph_class({_vet_string(s) for s in content}))
 
     def not_in_spec(self):
         '''An empty tag list is still useful. Can be added to later.'''
-        self.fill([])
-
-    def _tagify(self, string):
-        for tag in self.roster:
-            if string == tag.string.raw:
-                return tag
-
-        s = 'Tag markup "{}" does not appear in roster: "{}".'
-        s = s.format(string, [str(t) for t in self.roster])
-        raise exc.SpecificationError(s)
+        self.in_spec(())

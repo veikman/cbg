@@ -22,18 +22,17 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
-from . import app
+from . import keys
+from . import elements
+from . import style
+from . import sample
+from . import svg
+from . import size
 from . import card
 from . import deck
-from . import elements
-from . import exc
-from . import fonts
 from . import page
-from . import size
-from . import style
-from . import svg
 from . import tag
-from . import wardrobe
+from . import app
 
-__all__ = ['app', 'card', 'deck', 'elements', 'exc', 'fonts',
-           'page', 'size', 'style', 'svg', 'tag', 'wardrobe']
+__all__ = ['app', 'card', 'deck', 'elements', 'keys', 'page', 'sample', 'size',
+           'style', 'svg', 'tag']

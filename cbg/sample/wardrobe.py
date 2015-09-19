@@ -22,21 +22,18 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
-from . import style
-from . import fonts
-from . import size
+from cbg import style
+from cbg.sample import font
+from cbg.sample import size
+from cbg.sample import color
 
 
-BLACK = (style.COLOR_BLACK,)
-WHITE = (style.COLOR_WHITE,)
-GRAY_50 = (style.COLOR_GRAY_50,)
-
-ARIAL_CENTERED = style.Type(fonts.ARIAL, anchor='middle')
+ARIAL_CENTERED = style.Type(font.ARIAL, anchor='middle')
 
 FONTSCHEME = {style.MAIN: ARIAL_CENTERED}
 
-COLORSCHEME = {style.MAIN: BLACK,
-               style.ACCENT: GRAY_50,
-               style.CONTRAST: WHITE}
+COLORSCHEME = {style.MAIN: color.BLACK,
+               style.ACCENT: color.GRAY_50,
+               style.CONTRAST: color.WHITE}
 
 WARDROBE = style.Wardrobe(size.FONT_TITLE_ME, FONTSCHEME, COLORSCHEME)

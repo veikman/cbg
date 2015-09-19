@@ -3,8 +3,7 @@
 
 import unittest
 
-from . import tag
-from . import exc
+import cbg.tag as tag
 
 
 class Basics(unittest.TestCase):
@@ -22,10 +21,10 @@ class Basics(unittest.TestCase):
 
 class Sets(unittest.TestCase):
     def setUp(self):
-        self.t1 = tag.Tag('t1')
-        self.t2 = tag.Tag('t2', subordinate_to=self.t1)
-        self.t3 = tag.Tag('t3', subordinate_to=self.t1)
-        self.list_ = tag.SetOfTags(None, (self.t2, self.t1))
+        self.t1 = tag.AdvancedTag('t1')
+        self.t2 = tag.AdvancedTag('t2', subordinate_to=self.t1)
+        self.t3 = tag.AdvancedTag('t3', subordinate_to=self.t1)
+        self.list_ = tag.SetOfAdvancedTags((self.t2, self.t1))
 
     def test_relationship_simple(self):
         self.assertIsNone(self.t1.subordinate_to)
@@ -51,13 +50,13 @@ class Sets(unittest.TestCase):
 
 class Safeguards(unittest.TestCase):
     def setUp(self):
-        self.t1 = tag.Tag('a', syntactic=True)
+        self.t1 = tag.AdvancedTag('a', syntactic=True)
 
     def test_disparate_hierarchy(self):
-        with self.assertRaises(exc.SpecificationError):
-            tag.Tag('b', subordinate_to=self.t1)
+        with self.assertRaises(tag.AdvancedTag.TaggingError):
+            tag.AdvancedTag('b', subordinate_to=self.t1)
 
     def test_open_hierarchy(self):
-        t2 = tag.Tag('b', syntactic=True, subordinate_to=self.t1)
-        with self.assertRaises(exc.SpecificationError):
-            tag.SetOfTags(None, (t2,))
+        t2 = tag.AdvancedTag('b', syntactic=True, subordinate_to=self.t1)
+        with self.assertRaises(tag.AdvancedTag.TaggingError):
+            tag.SetOfAdvancedTags((t2,))

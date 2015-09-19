@@ -29,13 +29,21 @@ import os
 import lxml.builder
 import numpy
 
-from . import exc
-from . import size
-from . import svg
+import cbg.sample.size as size
+import cbg.svg as svg
 
 
 class Page():
     '''A logical printable page, populated by neatly layed out cards.'''
+
+    class PageFull(Exception):
+        '''Not an error. Footprint cannot be fitted into current layout.'''
+        pass
+
+    class PrintableAreaTooSmall(Exception):
+        '''Footprint too large for page type. Layout impossible.'''
+        pass
+
     def __init__(self, dimensions=size.A4, side='', left_to_right=True):
         '''Initialize.
 
@@ -101,7 +109,7 @@ class Page():
         occupied_y = sum(self.row_heights)
 
         if space_x < card_x or space_y < card_y:
-            raise exc.PrintableAreaTooSmall()
+            raise self.PrintableAreaTooSmall()
         if space_x < row_x + card_x:
             # The current row must be getting too long.
             # We need to see if the next row would work.
@@ -116,7 +124,7 @@ class Page():
 
     def add(self, footprint, xml):
         if not self.can_fit(footprint):
-            raise exc.PageFull()
+            raise self.PageFull()
         if self.printable[0] < self.row_size[0] + footprint[0]:
             self.row_heights.append(self.row_size[1])
             self._new_row()

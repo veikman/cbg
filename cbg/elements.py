@@ -22,57 +22,98 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
-import copy
+import itertools
 
-from . import misc
+import cbg.misc
+import cbg.keys
+
+
+class DerivedFromSpec():
+    '''Superclass for anything that parses complex raw text specifications.
+
+    The properties of subclasses are derived from plain-text specifications
+    using text keys. Some keys are defined here, so that localization
+    (of specifications) can be achieved by overwriting these keys in
+    custom classes.
+
+    Support for additional keys is achieved by subclassing CardContentField.
+
+    '''
+
+    class SpecificationError(ValueError):
+        '''Used to signal unmet formal expectations.'''
+        pass
+
+    # Canonical specification keywords:
+    key_metadata = cbg.keys.METADATA
+    key_data = cbg.keys.DATA
+
+    key_copies = cbg.keys.COPIES
+    key_defaults = cbg.keys.DEFAULTS
+    key_tags = cbg.keys.TAGS
+    key_title = cbg.keys.TITLE
+
+    # Conveniences for uniquely named items with no proper title:
+    _untitled_base = 'untitled'
+    _untitled_iterator = itertools.count(start=1)
+
+    def _generate_title(self):
+        '''Create a hitherto unused title. Useful mainly for hash maps.'''
+        return '{} {}'.format(self._untitled_base,
+                              next(self._untitled_iterator))
+
+
+class Paragraph():
+    '''A level below a content field in organization.
+
+    This is trivial in its present form, merely converting integers
+    etc. to strings.
+
+    The process() method is intended to be overridden for the integration
+    of a string templating system.
+
+    '''
+    def __init__(self, content):
+        self.raw = content  # Useful for comparisons between specs.
+        self.string = self.process(self.raw)
+
+    def process(self, raw_data):
+        return str(raw_data)
+
+    def __str__(self):
+        return self.string
 
 
 class CardContentField(list):
-    '''Superclass for any type of human-readable text content.
+    '''Superclass for any type of human-readable text content on a card.
 
-    Instantiated for ideal field types, and then copied and adopted
-    by cards.
+    Used to create classes to represent ideal field types, which are then
+    instantiated by card types.
 
     '''
-    def __init__(self, markupstring, dresser_class):
-        super().__init__()
-        self.markupstring = markupstring
-        self.dresser_class = dresser_class
+    key = None
+    presenter_class = None
+    paragraph_class = Paragraph
 
-        # To be determined later:
-        self.parent = None
-        self.dresser = None
-
-    def composite(self, parent):
+    def __init__(self, parent):
         '''Produce a copy of this field to place on a parent card.'''
-        c = copy.copy(self)
-        c.parent = parent
-        c.dresser = self.dresser_class(c)
-        return c
+        super().__init__()
+        self.parent = parent
+        self.presenter = self.presenter_class(self)
 
-    def fill(self, content):
-        '''Intended for use as a single point of entry.'''
-        if misc.listlike(content):
+    def in_spec(self, content):
+        '''Beaviour when the field's key is found in the raw specification.'''
+        if cbg.misc.listlike(content):
             # Act like list.extend().
             # The purpose of this is to permit both lists and simple
             # strings in YAML markup, for most field types.
             parts = content  # Not sorted. Preserve rule order.
         else:
             parts = (content,)
-        for p in parts:
-            self.append(Paragraph(self, p))
+
+        for raw in parts:
+            self.append(self.paragraph_class(raw))
 
     def not_in_spec(self):
         '''Behaviour when the raw specification does not mention the field.'''
         pass
-
-
-class Paragraph():
-    '''A level below a content field in organization.'''
-    def __init__(self, parent, content):
-        self.parent = parent
-        self.raw = content  # Useful for comparisons between specs.
-        self.string = str(self.raw)
-
-    def __str__(self):
-        return self.string

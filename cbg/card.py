@@ -22,90 +22,118 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
-from . import exc
+import itertools
+
+import cbg.elements
 
 
-TITLE = '_title'
-DATA = 'data'
+class HumanReadablePlayingCard(cbg.elements.DerivedFromSpec, list):
+    '''The text content of a single playing card, as a list of fields.
 
+    Content is tracked by field type, and each field type has its own
+    class, listed in the "field_classes" class attribute, a tuple.
 
-class HumanReadablePlayingCard(list):
-    '''Superclass for the text content of a single playing card.
+    If there is a field corresponding to a title, it should generally
+    be populated first and use the "key_title" attribute of the card
+    class as its key, because that way its content will appear in
+    exception messages etc., to help debug subsequent problems.
 
-    SVG (XML) typesetting information can be composited onto instances.
+    SVG (XML) typesetting information can be composited onto instances
+    as the "presenter" attribute, which is based on the "presenter_class"
+    class attribute.
 
-    The number of copies etc. is tracked at the deck level, not here.
+    The number of copies in a deck is tracked at the deck level, not here.
 
     '''
+    field_classes = tuple()
+    presenter_class = None
 
-    def __init__(self, title, specdict):
-        '''If there's a data field, zoom in on that. Otherwise, all is data.'''
+    _untitled_base = 'untitled card'
+    _untitled_iterator = itertools.count(start=1)
+
+    def __init__(self, **raw_data):
+        '''Receive a hash map of raw data from content specifications.'''
         super().__init__()
-        self.title = title
-        self.raw = specdict
+        self._generated_title = self._generate_title()
 
-        try:
-            self.data = self.raw[DATA]
-        except KeyError:
-            self.data = self.raw
+        self.presenter = None  # Graphics encoder not mandatory.
+        if self.presenter_class:
+            self.presenter = self.presenter_class(self)
 
-        self.dresser = None  # Graphics encoder not mandatory.
-        self.process()
+        for f in self.field_classes:
+            # Instantiate empty fields for content.
+            self.append(f(self))
 
-    def process(self):
-        '''All the work from terse specs to completion.'''
-        raise NotImplementedError
+        self._process(**raw_data)
+
+    def _process(self, **raw_data):
+        '''All the work from terse specs to complete contents.'''
+        self._populate_fields(raw_data)
+
+    def _populate_fields(self, raw_data):
+        '''Put data from incoming raws into empty fields.
+
+        The order is honored because field methods may be overridden
+        to perform arbitrary operations on earlier fields, e.g. the
+        presence of an "Action" field may automatically add an "Action"
+        tag to a "Tags" field, which needs to have been initialized
+        with other content first.
+
+        '''
+        for field in self:
+            try:
+                value = raw_data.pop(field.key)
+            except KeyError:
+                field.not_in_spec()
+            else:
+                field.in_spec(value)
+
+        for key, value in raw_data.items():
+            s = 'Unrecognized field in data spec for card "{}": "{}: {}".'
+            s = s.format(self.title, key, value)
+            raise self.SpecificationError(s)
 
     @property
     def sorting_keys(self):
         '''Used by decks to put themselves in order.'''
         return self.title
 
-    def populate_fields(self, fields):
-        '''Standard procedure often called from process().'''
-        for f in fields:
-            # Transform ideal, possible fields into real, empty ones.
-            self.append(f.composite(self))
-        for d in self.data:
-            if not self._sancheck_raw_field(d, fields):
-                s = 'Unrecognized field in data spec for card "{}": "{}".'
-                raise exc.SpecificationError(s.format(self.title, d))
+    def field_by_key(self, key, required=True):
         for f in self:
-            if f.markupstring in self.data:
-                f.fill(self.data[f.markupstring])
-            elif f.markupstring == TITLE:
-                # For convenience, the string key used to identify the
-                # card in YAML can be recycled as its title.
-                f.fill(self.title)
-            else:
-                f.not_in_spec()
-
-    def field_by_markupstring(self, string):
-        for f in self:
-            if f.markupstring == string:
+            if f.key == key:
                 return f
-        s = 'No such field on card {}: {}.'
-        raise KeyError(s.format(self.title, string))
+        if required:
+            s = 'No such field on card {}: {}.'
+            raise KeyError(s.format(self.title, key))
+
+    @property
+    def title(self):
+        '''Quick access to the card's title field's processed value, if any.
+
+        In the absence of a title field, for the moment, use a stable
+        generated title.
+
+        '''
+        try:
+            return self.field_by_key(self.key_title)[0].string
+        except:
+            return self._generated_title
 
     @property
     def tags(self):
-        '''Quick access to the card's tags (cf. the tag module).
+        '''Quick access to the card's tags. See the tag module.
 
-        Based on the assumption that all relevant tags are identified
-        by the string "tags" in YAML markup, and that the card has
-        such a field even if no tags are applied. May need overriding.
+        This method will only find a tag field with a key from the
+        standard source, and assumes the existence of such a field,
+        returning a single paragraph-equivalent of content. May need
+        overriding for other arrangements.
 
         In the basic application model, users can filter cards based
         on this attribute.
 
         '''
-        return self.field_by_markupstring('tags')[0]
-
-    def _sancheck_raw_field(self, field, roster):
-        for f in roster:
-            if f.markupstring == field:
-                return True
-        return False
+        return self.field_by_key(self.key_tags)[0]
 
     def __hash__(self):
-        return hash(self.title)
+        '''Treat as if immutable, because decks are counters.'''
+        return hash(id(self))

@@ -4,68 +4,61 @@
 import unittest
 import unittest.mock
 
-from . import card
-from . import deck
-
+import cbg.card as card
+import cbg.deck as deck
+import cbg.keys as keys
+import cbg
 
 FIRST = 'First'
 SECOND = 'Second'
 THIRD = 'Third'
 
-SPEC = {deck.METADATA: {},
-        FIRST: {card.DATA: None, deck.COPIES: 3},
-        SECOND: {card.DATA: None, deck.COPIES: 1},
-        THIRD: {card.DATA: None, deck.COPIES: 2}}
+SPEC = {keys.METADATA: {keys.DEFAULTS: {keys.COPIES: 2}},
+        FIRST: {keys.DATA: {}, keys.METADATA: {keys.COPIES: 3}},
+        SECOND: {keys.DATA: {}, keys.METADATA: {keys.COPIES: 1}},
+        THIRD: {keys.DATA: {}, keys.METADATA: {}}
+        }
+
+DUMMY = {keys.DATA: {keys.TITLE: 't0'}}
+
+
+class TitleField(cbg.elements.CardContentField):
+    key = keys.TITLE
+    presenter_class = cbg.svg.SVGField
 
 
 class CardSubclass(card.HumanReadablePlayingCard):
-    def process(self):
-        self.dresser = True
-
-    @property
-    def sorting_keys(self):
-        return self.title
+    field_classes = (TitleField,)
 
 
 class Card(unittest.TestCase):
-    def test_safeguards(self):
-        with self.assertRaises(NotImplementedError):
-            card.HumanReadablePlayingCard('t', {card.DATA: None})
+    def test_empty(self):
+        card.HumanReadablePlayingCard()
+
+    def test_data_empty(self):
+        with self.assertRaises(CardSubclass.SpecificationError):
+            card.HumanReadablePlayingCard(**{keys.DATA: {}})
 
     def test_creation(self):
         o = unittest.mock.patch.object
-        with o(card.HumanReadablePlayingCard, 'process') as m:
-            card.HumanReadablePlayingCard('t', {card.DATA: None})
-            m.assert_called_once_with()
+        with o(card.HumanReadablePlayingCard, '_process') as m:
+            card.HumanReadablePlayingCard(**DUMMY)
+            m.assert_called_once_with(**DUMMY)
 
     def test_sorting(self):
-        c = CardSubclass('t', {card.DATA: None})
-        self.assertEqual(c.sorting_keys, 't')
-
-    def test_attribute_preservation(self):
-        c = CardSubclass('t', {card.DATA: None})
-        self.assertIsNotNone(c.dresser)
+        c = CardSubclass(**{keys.TITLE: 't1'})
+        self.assertEqual(c.sorting_keys, 't1')
 
 
 class Deck(unittest.TestCase):
     def setUp(self):
-        o = unittest.mock.patch.object
-        with o(deck.Deck, 'read_raw', return_value=SPEC) as m:
-            self.deck = deck.Deck('deck', 'path', CardSubclass)
-            m.assert_called_once_with()
+        self.deck = deck.Deck(CardSubclass, SPEC)
 
     def test_sorting_singles(self):
-        sorted_ = [c.title for c in self.deck.singles_sorted]
+        sorted_ = [c.title for c in self.deck.singles_sorted()]
         self.assertListEqual(sorted_, [FIRST, SECOND, THIRD])
 
     def test_sorting_copies(self):
-        sorted_ = [c.title for c in self.deck.all_sorted]
+        sorted_ = [c.title for c in self.deck.all_sorted()]
         self.assertListEqual(sorted_, [FIRST, FIRST, FIRST,
                                        SECOND, THIRD, THIRD])
-
-    def test_attribute_preservation(self):
-        for type_ in self.deck:
-            self.assertIsNotNone(type_.dresser)
-            break
-        self.assertIsNotNone(self.deck.singles_sorted[0].dresser)
-        self.assertIsNotNone(self.deck.all_sorted[0].dresser)

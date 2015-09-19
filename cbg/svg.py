@@ -24,13 +24,13 @@ Copyright 2014-2015 Viktor Eikman
 
 import textwrap
 import logging
-import math
 
 import lxml.etree
 import numpy
 
-from . import elements
-from . import misc
+import cbg.elements as elements
+import cbg.misc as misc
+import cbg.sample as sample
 
 
 NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
@@ -47,17 +47,21 @@ LOWER_RIGHT_CORNER = 'lower_right_corner'
 class SVGPresenter():
     '''An abstract base class with a set of methods for producing SVG code.
 
-    Different subclasses of this are composited onto main card objects
-    and each of their fields.
-
-    Commonly called a dresser.
+    Different subclasses of this are defined for cards and each of their
+    fields. These subclasses are then instantiated by content owners in
+    the same category: A card content object instantiates its card
+    presenter, and so on. This is because presenters may seek to
+    coordinate, traversing their content owners to do so.
 
     '''
 
-    def __init__(self, parent, wardrobe, size=None):
+    wardrobe = sample.wardrobe.WARDROBE
+
+    # Canvas size is typically set for cards only.
+    size = None
+
+    def __init__(self, parent):
         self.parent = parent
-        self.wardrobe = wardrobe
-        self.size = size
 
     def front(self):
         '''Produce SVG XML for the front/main content side of the card.'''
@@ -74,9 +78,7 @@ class SVGPresenter():
         Subordinate representers use this to write coordinates.
 
         '''
-        if origin is not None:
-            origin = numpy.array(origin)
-        self.origin = origin
+        self.origin = numpy.array(origin) if origin is not None else origin
 
         self._from_top = None
         self._from_bottom = None
@@ -93,7 +95,7 @@ class SVGPresenter():
 
     @property
     def g(self):
-        '''The closest SVG representer on the same card that has a size.
+        '''The closest SVG representer on the same card that has a canvas size.
 
         The method is named after the SVG code for a group: 'g'.
 
@@ -244,7 +246,7 @@ class SVGPresenter():
 
     def _attrdict_text(self, position):
         ret = self.wardrobe.dict_svg_font()
-        ret['x'], ret['y'] = rounded(position)
+        ret['x'], ret['y'] = misc.rounded(position)
         ret.update(self.g.cursor.transform.attrdict(position=position))
         ret['{{{}}}space'.format(NAMESPACE_XML)] = 'preserve'
         return ret
@@ -253,25 +255,25 @@ class SVGPresenter():
         if width is None:
             width = self.inner
         ret = self.wardrobe.dict_svg_stroke(width)
-        ret['x1'], ret['y1'] = rounded(a)
-        ret['x2'], ret['y2'] = rounded(b)
+        ret['x1'], ret['y1'] = misc.rounded(a)
+        ret['x2'], ret['y2'] = misc.rounded(b)
         return ret
 
     def _attrdict_rect(self, offset, size, rounding=None):
         ret = self.wardrobe.dict_svg_fill()
-        ret['width'], ret['height'] = rounded(size)
+        ret['width'], ret['height'] = misc.rounded(size)
         position = self.origin + offset
-        ret['x'], ret['y'] = rounded(position)
-##        ret.update(self.g.cursor.transform.attrdict(position))
+        ret['x'], ret['y'] = misc.rounded(position)
+#        ret.update(self.g.cursor.transform.attrdict(position))
         if rounding is not None:
-            ret['rx'] = rounded(rounding)
-            ret['ry'] = rounded(rounding)
+            ret['rx'] = misc.rounded(rounding)
+            ret['ry'] = misc.rounded(rounding)
         return ret
 
     def _attrdict_circle(self, position, radius):
         ret = self.wardrobe.dict_svg_fill()
-        ret['cx'], ret['cy'] = rounded(position)
-        ret['r'] = rounded(radius)
+        ret['cx'], ret['cy'] = misc.rounded(position)
+        ret['r'] = misc.rounded(radius)
         return ret
 
     def _true_parent(self, object_):
@@ -279,13 +281,13 @@ class SVGPresenter():
 
         It is assumed that a higher-level SVG presenter is composited
         onto an object reachable by a chain of "parent" attributes,
-        and named "dresser".
+        and named "presenter".
 
         '''
-        if hasattr(object_, 'dresser'):
-            if isinstance(object_.dresser, SVGPresenter):
-                if object_.dresser.size is not None:
-                    return object_.dresser
+        if hasattr(object_, 'presenter'):
+            if isinstance(object_.presenter, SVGPresenter):
+                if object_.presenter.size is not None:
+                    return object_.presenter
         if hasattr(object_, 'parent'):
             return self._true_parent(object_.parent)
         s = 'Unable to locate true parent of {} after searching to {}.'
@@ -300,6 +302,8 @@ class SVGCard(SVGPresenter):
 
     '''
 
+    size = sample.size.STANDARD_EURO
+
     def front(self, origin):
         self.reset(origin=origin)
         tree = self.new_tree()
@@ -311,7 +315,7 @@ class SVGCard(SVGPresenter):
 
         self._frame(tree)
         for field in self.parent:
-            field.dresser.front(tree)
+            field.presenter.front(tree)
 
         return tree
 
@@ -323,7 +327,7 @@ class SVGCard(SVGPresenter):
         self.top_down().jump(self.size.footprint[1] / 3)
 
         for field in self.parent:
-            field.dresser.back(tree)
+            field.presenter.back(tree)
 
         return tree
 
@@ -482,21 +486,8 @@ class CursorFromBottom(GraphicsElementInsertionCursor):
         return self.slide(size)
 
 
-def rounded(value):
-    '''Coordinate pairs etc. reduced to 0.1 µm accuracy for readability.
-
-    Measurements are also converted to strings, as a convenience for
-    working with lxml.
-
-    '''
-    if misc.listlike(value):
-        return [rounded(axis) for axis in value]
-    else:
-        return str(round(value, 4))
-
-
-def stylist(dresser_class, card, text):
-    '''Instantiate the named dresser subclass and return the instance.
+def stylist(presenter_class, card, text):
+    '''Instantiate the named presenter subclass and return the instance.
 
     This function creates a temporary field object in order to
     borrow functionality from conveniently specialized, user-defined
@@ -507,9 +498,12 @@ def stylist(dresser_class, card, text):
     An example use case would be a tag field presenter that controls what
     is to be written on the back of a card, based on its tags. The text
     on the back should have a completely different style than the tag box
-    on the front, and therefore needs to borrow a dresser in that style.
+    on the front, and therefore needs to borrow a presenter in that style.
 
     '''
-    tmp = elements.CardContentField('', dresser_class).composite(card)
-    tmp.fill(text)
-    return tmp.dresser
+    class TemporaryField(elements.CardContentField):
+        presenter_class = presenter_class
+
+    tmp = TemporaryField(card)
+    tmp.in_spec(text)
+    return tmp.presenter
