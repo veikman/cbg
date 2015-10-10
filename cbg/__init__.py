@@ -34,5 +34,5 @@ from . import page
 from . import tag
 from . import app
 
-__all__ = ['app', 'card', 'deck', 'elements', 'keys', 'page', 'sample', 'size',
-           'style', 'svg', 'tag']
+__all__ = [app, card, deck, elements, keys, page, size, style, tag,
+           sample, svg]

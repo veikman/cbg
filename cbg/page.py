@@ -57,8 +57,8 @@ class Page():
         self.left_to_right = left_to_right
 
         head = dict()
-        head['xmlns'] = svg.NAMESPACE_SVG
-        head['xml'] = svg.NAMESPACE_XML
+        head['xmlns'] = svg.presenter.NAMESPACE_SVG
+        head['xml'] = svg.presenter.NAMESPACE_XML
         head['baseProfile'] = 'full'
         head['version'] = '1.1'
 

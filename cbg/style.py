@@ -51,6 +51,23 @@ class Wardrobe():
     dictionaries whose keys are the mode strings of this module.
 
     '''
+
+    class _Duplicator():
+        '''A wardrobe design tool for small differences.'''
+        def __init__(self, parent):
+            for dictname in ('fonts', 'colors'):
+                for key in KEYS:
+                    # Create a method for respawning parent with a difference.
+                    self._closure(parent, dictname, key)
+
+        def _closure(self, parent, dictname, key):
+            '''This method is just a scope for its local variables.'''
+            def f(new_value):
+                duplicate = copy.deepcopy(parent)
+                getattr(duplicate, dictname)[key] = new_value
+                return duplicate
+            setattr(self, '{}_{}'.format(dictname, key), f)
+
     def __init__(self, size, fonts, colors):
         self._native_size = size
         self.fonts = fonts
@@ -66,7 +83,7 @@ class Wardrobe():
 
         self.reset()
         self._sanity()
-        self.but = Duplicator(self)
+        self.but = self._Duplicator(self)
 
     @property
     def size(self):
@@ -190,23 +207,6 @@ class Wardrobe():
             s = 'Color for mode "{}" (stroke) is not iterable: {}.'
             raise TypeError(s.format(self._color_mode_stroke,
                                      self.colors[self._color_mode_stroke]))
-
-
-class Duplicator():
-    '''A wardrobe design tool for small differences.'''
-    def __init__(self, parent):
-        for dictname in ('fonts', 'colors'):
-            for key in KEYS:
-                # Create a method for respawning parent with a difference.
-                self._closure(parent, dictname, key)
-
-    def _closure(self, parent, dictname, key):
-        '''This method is just a scope for its local variables.'''
-        def f(new_value):
-            duplicate = copy.deepcopy(parent)
-            getattr(duplicate, dictname)[key] = new_value
-            return duplicate
-        setattr(self, '{}_{}'.format(dictname, key), f)
 
 
 class FontFamily():

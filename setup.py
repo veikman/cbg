@@ -21,6 +21,6 @@ setup(
         'Topic :: Games/Entertainment :: Board Games',
         'Topic :: Software Development :: Libraries :: Python Modules',
         ],
-    packages=['cbg', 'cbg.sample'],
+    packages=['cbg', 'cbg.sample', 'cbg.svg'],
     package_data={'': ['*.yaml']}
     )

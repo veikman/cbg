@@ -31,6 +31,7 @@ import numpy
 import cbg.elements as elements
 import cbg.misc as misc
 import cbg.sample as sample
+from cbg.svg import cursor
 
 
 NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
@@ -81,8 +82,8 @@ class SVGPresenter():
         self._from_top = None
         self._from_bottom = None
         if self.size:
-            self._from_top = CursorFromTop(self)
-            self._from_bottom = CursorFromBottom(self)
+            self._from_top = cursor.FromTop(self)
+            self._from_bottom = cursor.FromBottom(self)
 
         self.wardrobe.reset()
 
@@ -266,7 +267,7 @@ class SVGPresenter():
         ret['width'], ret['height'] = misc.rounded(size)
         position = self.origin + offset
         ret['x'], ret['y'] = misc.rounded(position)
-#        ret.update(self.g.cursor.transform.attrdict(position))
+        ret.update(self.g.cursor.transform.attrdict(position=position))
         if rounding is not None:
             ret['rx'] = misc.rounded(rounding)
             ret['ry'] = misc.rounded(rounding)
@@ -380,101 +381,3 @@ class SVGField(SVGPresenter):
         tmp = TemporaryField(card)
         tmp.in_spec(content)
         return tmp.presenter
-
-
-class GraphicsElementInsertionCursor():
-    '''A direction from which to insert new elements on a card.'''
-
-    class Transformer(list):
-        '''A list of standard SVG transformations to apply.'''
-
-        class Transformation(list):
-            def __init__(self, name, *args, extended_locally=False):
-                self._name = name
-                self._extended_locally = extended_locally
-                super().__init__(args)
-
-            def to_string(self, position):
-                data = self[:]
-                if self._extended_locally and position is not None:
-                    data.extend(position)
-                return '{}({})'.format(self._name, ','.join(map(str, data)))
-
-        def _new(self, *args, **kwargs):
-            self.append(self.Transformation(*args, **kwargs))
-
-        def matrix(self, a=1, b=0, c=0, d=1, e=0, f=0):
-            self._new('matrix', a, b, c, d, e, f)
-
-        def translate(self, x=0, y=0):
-            self._new('translate', x, y)
-
-        def scale(self, x=1, y=None):
-            self._new('scale', x, x if y is None else y)
-
-        def rotate(self, a, x=None, y=None):
-            if x is None and y is None:
-                # Rotation about the origin of the coordinate system
-                # is inherently undesirable for creating printable cards.
-                # Therefore, a hook is created for rotating about self.
-                self._new('rotate', a, extended_locally=True)
-            elif x is not None and y is not None:
-                self._new('rotate', a, x, y)
-            else:
-                raise ValueError('Rotation around a point requires x and y.')
-
-        def skew_x(self, a):
-            self._new('skewX', a)
-
-        def skew_y(self, a):
-            self._new('skewY', a)
-
-        def attrdict(self, position=None):
-            if self:
-                iterable = (t.to_string(position) for t in self)
-                return {'transform': ' '.join(iterable)}
-            return {}
-
-    flip_line_order = False
-
-    def __init__(self, parent):
-        self.parent = parent
-        self.displacement = 0
-        self.transform = self.Transformer()
-
-    def jump(self, position):
-        self.displacement = position
-
-    def slide(self, distance):
-        '''Return an appropriate height for the next insertion, and move.'''
-        raise NotImplementedError
-
-    def text(self, size, envelope):
-        '''A direction-sensitive line feed.'''
-        raise NotImplementedError
-
-
-class CursorFromTop(GraphicsElementInsertionCursor):
-    def slide(self, height):
-        '''Move first, then suggest insertion at new location.'''
-        self.displacement += height
-        return self.displacement
-
-    def text(self, size, envelope):
-        relevant = self.slide(size)
-        self.slide(envelope - size)
-        return relevant
-
-
-class CursorFromBottom(GraphicsElementInsertionCursor):
-    flip_line_order = True
-
-    def slide(self, height):
-        '''Insert first, then move (up). State position from top of card.'''
-        ret = self.displacement
-        self.displacement += height
-        return self.parent.size.footprint[1] - ret
-
-    def text(self, size, envelope):
-        self.slide(envelope - size)
-        return self.slide(size)

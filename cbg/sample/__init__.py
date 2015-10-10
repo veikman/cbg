@@ -6,4 +6,4 @@ from . import font
 from . import size
 from . import wardrobe
 
-__all__ = ['color', 'font', 'size', 'wardrobe']
+__all__ = [color, font, size, wardrobe]

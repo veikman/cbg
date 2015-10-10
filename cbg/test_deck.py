@@ -24,7 +24,7 @@ DUMMY = {keys.DATA: {keys.TITLE: 't0'}}
 
 class TitleField(cbg.elements.CardContentField):
     key = keys.TITLE
-    presenter_class = cbg.svg.SVGField
+    presenter_class = cbg.svg.presenter.SVGField
 
 
 class CardSubclass(card.HumanReadablePlayingCard):
