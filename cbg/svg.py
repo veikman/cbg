@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Objects and functions that draw visual details on cards in SVG code.
+'''Classes and functions that draw visual details on cards in SVG code.
 
 ------
 
@@ -361,6 +361,24 @@ class SVGField(SVGPresenter):
         self.wardrobe.reset()
         self.top_down()
 
+    @classmethod
+    def as_stylist(cls, card, content):
+        '''Instantiate for a temporary field and return the instance.
+
+        An example use case would be a tag field presenter that controls
+        what is to be written on the back of a card, based on its tags.
+        The text on the back should have a completely different style
+        than the tag box on the front, and therefore needs to borrow a
+        presenter in the latter style.
+
+        '''
+        class TemporaryField(elements.CardContentField):
+            presenter_class = cls
+
+        tmp = TemporaryField(card)
+        tmp.in_spec(content)
+        return tmp.presenter
+
 
 class GraphicsElementCorner():
     '''An immobile alternative to the cursor.'''
@@ -484,26 +502,3 @@ class CursorFromBottom(GraphicsElementInsertionCursor):
     def text(self, size, envelope):
         self.slide(envelope - size)
         return self.slide(size)
-
-
-def stylist(presenter_class, card, text):
-    '''Instantiate the named presenter subclass and return the instance.
-
-    This function creates a temporary field object in order to
-    borrow functionality from conveniently specialized, user-defined
-    SVGPresenter subclasses.
-
-    The text argument is used to populate the temporary field.
-
-    An example use case would be a tag field presenter that controls what
-    is to be written on the back of a card, based on its tags. The text
-    on the back should have a completely different style than the tag box
-    on the front, and therefore needs to borrow a presenter in that style.
-
-    '''
-    class TemporaryField(elements.CardContentField):
-        presenter_class = presenter_class
-
-    tmp = TemporaryField(card)
-    tmp.in_spec(text)
-    return tmp.presenter
