@@ -28,25 +28,82 @@ import cbg.keys as keys
 import cbg.misc as misc
 
 
-class CardSize():
+class Area():
+    '''A 2D surface area. In fact, a rectangle.'''
+
+    class Point(numpy.ndarray):
+        '''A point in a coordinate system.
+
+        This is a bare minimum needed to subclass a numpy array for
+        the purpose. It's used here mainly to avoid having to override
+        a huge amount of magic methods with reference to a composited
+        array in order to have mathematical syntactic sugar.
+
+        '''
+
+        def __new__(cls, position, *args, **kwargs):
+            obj = numpy.asarray(numpy.array(position, dtype=float)).view(cls)
+            return obj
+
+        def __array_finalize__(self, obj):
+            pass
+
+    class EdgePoint(Point):
+        '''A point on the edge of an area.
+
+        Instances can calculate displacement from their own position
+        away from an implied starting edge, which is not actually
+        represented by an object.
+
+        '''
+        def __init__(self, position, displacement_factors):
+            '''Do not call superclass __init__.'''
+            self.displacement_factors = displacement_factors
+
+        def displaced(self, offsets):
+            '''Produce a near-copy of self at stated offsets.
+
+            Positive offsets move towards an implied area center, whereas
+            negative offsets move away.
+
+            '''
+            pairs = zip(self.displacement_factors, misc.make_listlike(offsets))
+            return self.__class__(self + [f * o for f, o in pairs],
+                                  self.displacement_factors)
+
+    def __init__(self, footprint):
+        self.footprint = numpy.array(footprint)
+        self.upper_left = self.EdgePoint(self.footprint * (0, 0), (1, 1))
+        self.upper_right = self.EdgePoint(self.footprint * (1, 0), (-1, 1))
+        self.lower_left = self.EdgePoint(self.footprint * (0, 1), (1, -1))
+        self.lower_right = self.EdgePoint(self.footprint * (1, 1), (-1, -1))
+
+
+class CardSize(Area):
     '''A card in millimetres.'''
     def __init__(self, footprint, border_outer, border_inner):
-        self.footprint = numpy.array(footprint)
+        super().__init__(footprint)
         self.outer = border_outer
         self.inner = border_inner
 
     def tilted(self):
-        return CardSize(numpy.flipud(self.footprint), self.outer, self.inner)
+        '''A copy flipped 90°.
+
+        Used to make landscape versions of (normally) portrait card sizes.
+
+        '''
+        return self.__class__(numpy.flipud(self.footprint),
+                              self.outer, self.inner)
 
     @property
     def interior_width(self):
         return self.footprint[0] - 2 * self.outer - 2 * self.inner
 
 
-class PageSize():
+class PageSize(Area):
     '''A page in millimetres.'''
     def __init__(self, footprint, margins):
-        self.footprint = numpy.array(footprint)
+        super().__init__(footprint)
         self.margins = numpy.array(margins)
 
 

@@ -41,8 +41,6 @@ NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
 # ev = 'http://www.w3.org/2001/xml-events'
 # xlink = 'http://www.w3.org/1999/xlink'
 
-LOWER_RIGHT_CORNER = 'lower_right_corner'
-
 
 class SVGPresenter():
     '''An abstract base class with a set of methods for producing SVG code.
@@ -75,18 +73,16 @@ class SVGPresenter():
         '''Prepare for placement.
 
         The card-level origin is an offset relative to the page.
-        Subordinate representers use this to write coordinates.
+        Subordinate representers use this to determine coordinates.
 
         '''
         self.origin = numpy.array(origin) if origin is not None else origin
 
         self._from_top = None
         self._from_bottom = None
-        self.point = dict()
         if self.size:
             self._from_top = CursorFromTop(self)
             self._from_bottom = CursorFromBottom(self)
-            self.point[LOWER_RIGHT_CORNER] = LowerRightCorner(self)
 
         self.wardrobe.reset()
 
@@ -134,7 +130,8 @@ class SVGPresenter():
         character_width = self.wardrobe.width_to_height * character_height
         return int(space / character_width)
 
-    def new_tree(self):
+    @classmethod
+    def new_tree(cls):
         '''Create an empty SVG 'g' (group) element.
 
         Normally, each card is represented by one of these elements.
@@ -217,10 +214,15 @@ class SVGPresenter():
             self.g.cursor.slide(extra)
         self.g.cursor.slide(self.g.size.inner)
 
-    def put_circle(self, tree, content, positionstring):
-        '''Put a figure in a small circle along the border.'''
+    def put_circle(self, tree, content, origin):
+        '''Put a figure in a small circle along the border.
+
+        The origin argument must refer to something with the EdgePoint
+        API.
+
+        '''
         radius = self.wardrobe.size.base
-        point = self.g.origin + self.g.point[positionstring].displace(radius)
+        point = self.g.origin + origin.displaced(radius)
 
         attrib = self._attrdict_circle(point, radius)
         lxml.etree.SubElement(tree, 'circle', attrib)
@@ -380,33 +382,9 @@ class SVGField(SVGPresenter):
         return tmp.presenter
 
 
-class GraphicsElementCorner():
-    '''An immobile alternative to the cursor.'''
-    def __init__(self, parent):
-        self.parent = parent
-
-    def displace(self, offsets):
-        '''Produce coordinates within card, at offsets from corner.
-
-        Positive offsets always move toward the next corner on each axis.
-        This is to allow blind addition with card origin to get absolute
-        coordinates on the page.
-
-        '''
-        if not misc.listlike(offsets):
-            offsets = (offsets, offsets)
-        displacement = [f * o for f, o in zip(self.factors, offsets)]
-        return self.position + displacement
-
-
-class LowerRightCorner(GraphicsElementCorner):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.position = self.parent.size.footprint
-        self.factors = (-1, -1)
-
-
 class GraphicsElementInsertionCursor():
+    '''A direction from which to insert new elements on a card.'''
+
     class Transformer(list):
         '''A list of standard SVG transformations to apply.'''
 
@@ -457,12 +435,12 @@ class GraphicsElementInsertionCursor():
                 return {'transform': ' '.join(iterable)}
             return {}
 
-    '''A direction from which to insert new elements on a card.'''
+    flip_line_order = False
+
     def __init__(self, parent):
         self.parent = parent
         self.displacement = 0
         self.transform = self.Transformer()
-        self.flip_line_order = False
 
     def jump(self, position):
         self.displacement = position
@@ -489,9 +467,7 @@ class CursorFromTop(GraphicsElementInsertionCursor):
 
 
 class CursorFromBottom(GraphicsElementInsertionCursor):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.flip_line_order = True
+    flip_line_order = True
 
     def slide(self, height):
         '''Insert first, then move (up). State position from top of card.'''
