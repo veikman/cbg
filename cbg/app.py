@@ -153,6 +153,12 @@ class Application():
             # Actual deck objects are not preserved here.
             self.specs[d.title] = d.all_sorted()
 
+        self._all_layouts()
+        return self._output()
+
+    def _all_layouts(self):
+        '''Lay out pages in SVG. Save the resulting page queue.'''
+
         page_queue = page.Queue(self.name_short)
 
         if self.args.neighbours:
@@ -174,7 +180,11 @@ class Application():
             for pair in zip(page_queue[:midpoint], page_queue[midpoint:]):
                 tmp.extend(pair)
             page_queue.data = tmp
+
         page_queue.save(self.folder_svg)
+
+    def _output(self):
+        '''Treat saved SVG.'''
 
         if self.args.rasterize or self.args.print:
             if not self.rasterize():
@@ -227,19 +237,15 @@ class Application():
             yield self.limit_selection(deck_)
 
     def layout(self, page_queue, side_name, front, back):
-        '''Add to a queue of layed-out pages, full of cards.
+        '''Add to a queue of layed-out pages, full of cards.'''
 
-        By default, the pages are A4 with all measurements specified in
-        mm, despite the scale-free nature of SVG.
-
-        '''
         def new_page():
             page_queue.append(page.Page(left_to_right=front, side=side_name))
 
-        def insert(footprint, xml_gen):
+        def insert(footprint, xml_function):
             if not page_queue[-1].can_fit(footprint):
                 new_page()
-            xml = xml_gen(page_queue[-1].free_spot(footprint))
+            xml = xml_function(page_queue[-1].free_spot(footprint))
             page_queue[-1].add(footprint, xml)
 
         new_page()

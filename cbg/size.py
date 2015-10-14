@@ -37,7 +37,7 @@ class Area():
         This is a bare minimum needed to subclass a numpy array for
         the purpose. It's used here mainly to avoid having to override
         a huge amount of magic methods with reference to a composited
-        array in order to have mathematical syntactic sugar.
+        array in order to use mathematical operators (syntactic sugar).
 
         '''
 
@@ -73,10 +73,53 @@ class Area():
 
     def __init__(self, footprint):
         self.footprint = numpy.array(footprint)
+
         self.upper_left = self.EdgePoint(self.footprint * (0, 0), (1, 1))
         self.upper_right = self.EdgePoint(self.footprint * (1, 0), (-1, 1))
         self.lower_left = self.EdgePoint(self.footprint * (0, 1), (1, -1))
         self.lower_right = self.EdgePoint(self.footprint * (1, 1), (-1, -1))
+
+    def corners(self):
+        '''In clockwise order starting nearest to the geometric origin.
+
+        1  2
+
+        4  3
+
+        '''
+        return (self.upper_left, self.upper_right,
+                self.lower_right, self.lower_left)
+
+    def corner_offsets(self, offsets, x_first=False):
+        '''A generator of 4 pairs of points, each at symmetric offsets.
+
+        The offsets argument is expected to be a Point, or treatable as
+        such, where the x coordinate is larger than the y coordinate.
+        This produces a pattern like the following:
+
+         2  3
+        1    4
+
+        8    5
+         7  6
+
+        Used to generate frames.
+
+        '''
+        for corner in self.corners():
+
+            def new(coordinates):
+                return self.EdgePoint(coordinates, corner.displacement_factors)
+
+            x = corner.displaced(offsets)
+            y = corner.displaced(offsets[::-1])  # Axes flipped to favour y.
+
+            if x_first:
+                yield new(x), new(y)
+            else:
+                yield new(y), new(x)
+
+            x_first = not x_first
 
 
 class CardSize(Area):

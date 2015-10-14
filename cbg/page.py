@@ -125,9 +125,11 @@ class Page():
     def add(self, footprint, xml):
         if not self.can_fit(footprint):
             raise self.PageFull()
+
         if self.printable[0] < self.row_size[0] + footprint[0]:
             self.row_heights.append(self.row_size[1])
             self._new_row()
+
         self.xml.append(xml)
 
         # Adjust envelope of current row to reflect the addition.

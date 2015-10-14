@@ -32,6 +32,7 @@ import cbg.elements as elements
 import cbg.misc as misc
 import cbg.sample as sample
 from cbg.svg import cursor
+from cbg.svg import path
 
 
 NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
@@ -74,7 +75,7 @@ class SVGPresenter():
         '''Prepare for placement.
 
         The card-level origin is an offset relative to the page.
-        Subordinate representers use this to determine coordinates.
+        Subordinate presenters use this to determine coordinates.
 
         '''
         self.origin = numpy.array(origin) if origin is not None else origin
@@ -215,6 +216,18 @@ class SVGPresenter():
             self.g.cursor.slide(extra)
         self.g.cursor.slide(self.g.size.inner)
 
+    def put_path(self, tree, pathfinder):
+        '''Add the effects of a cbg.svg.path.Pathfinder to a tree.
+
+        Automatically stroke the path with the thickness of the card size's
+        border, on the assumption that we're making a frame.
+
+        '''
+        attrib = pathfinder.attrdict()
+        attrib['fill'] = 'none'
+        attrib.update(self.wardrobe.dict_svg_stroke(self.size.outer))
+        lxml.etree.SubElement(tree, 'path', attrib)
+
     def put_circle(self, tree, content, origin):
         '''Put a figure in a small circle along the border.
 
@@ -316,14 +329,15 @@ class SVGCard(SVGPresenter):
         self.bottom_up().jump(1.6 * self.size.outer)
         self.top_down().jump(self.size.outer)
 
-        self._frame(tree)
         for field in self.parent:
             field.presenter.front(tree)
 
+        self._frame(tree)
         return tree
 
     def back(self, origin):
         '''Start a third of the way down. No frame.'''
+
         self.reset(origin=origin)
         tree = self.new_tree()
 
@@ -336,15 +350,23 @@ class SVGCard(SVGPresenter):
 
     def _frame(self, tree):
         '''Frame an XML object (tree) in a border.'''
-        attrib = self._attrdict_rect(0, self.size.footprint,
-                                     rounding=self.size.outer)
-        lxml.etree.SubElement(tree, 'rect', attrib)
 
-        self.wardrobe.mode_contrast(fill=True)
-        attrib = self._attrdict_rect(self.size.outer,
-                                     self.size.footprint - 2 * self.size.outer,
-                                     rounding=self.size.inner)
-        lxml.etree.SubElement(tree, 'rect', attrib)
+        o = self.size.outer
+
+        pathfinder = path.Pathfinder()
+
+        joins = self.size.corner_offsets((1.5 * o, 0.5 * o))
+        for corner, pair in zip(self.size.corners(), joins):
+            a, b = map(lambda p: p + self.origin, pair)
+            c = corner.displaced((0.5 * o, 0.5 * o)) + self.origin
+            if pathfinder:
+                pathfinder.lineto(a)
+            else:
+                pathfinder.moveto(a)
+            pathfinder.quadratic_bezier_curveto(c, b)
+
+        pathfinder.closepath()
+        self.put_path(tree, pathfinder)
 
 
 class SVGField(SVGPresenter):

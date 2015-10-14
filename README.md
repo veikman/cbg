@@ -10,14 +10,20 @@ handouts, such as memos on the dramatis personae of an RPG campaign,
 and for "resurrecting" games long out of print.
 
 
+### Installation
+
+CBG is a regular Python 3 package. Refer to the included scripts.
+
+
 ### Usage
 
-The library API should be considered unstable. There is no manual.
-
-For installation instructions, refer to the included scripts.
+By default, CBG produces SVG graphics scaled to A4 pages, with measurements
+treated as millimetres, despite the scale-free nature of SVG.
 
 An example implementation is provided in another repository, where CBG
 is used to generate a [planning poker](https://github.com/veikman/ppoker) deck.
+
+The library API should be considered unstable. There is no manual.
 
 
 ### Legal
