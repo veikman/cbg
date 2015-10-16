@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-'''Tag support for deck-building game cards.
+'''Tag support for cards. A tag is a short phrase for categorization.
 
 Any property of a card that does not require unique or elaborate
 text on the card can be reduced to a tag. The tag itself would have to
 be explained elsewhere.
 
 Tags can also be used inside CBG applications, to drive programmatic
-logic. For example, the choice of color scheme for a card can be a
-result of its tags.
+logic. For example, the choice of color scheme for a card, or the text
+on its back, can be a result of its tags.
 
 ------
 
@@ -31,8 +31,9 @@ Copyright 2014-2015 Viktor Eikman
 '''
 
 import cbg.keys as keys
-import cbg.elements as elements
 import cbg.misc
+from cbg.content import elements
+from cbg.content import field
 
 
 class Tag(elements.Paragraph):
@@ -59,6 +60,48 @@ class Tag(elements.Paragraph):
     def __lt__(self, other):
         '''Tags sort alphabetically.'''
         return str(self) < str(other)
+
+
+class TagField(field.Field):
+    '''A content field that uses a set of tags like a paragraph.'''
+
+    key = keys.TAGS
+    paragraph_class = Tag  # Expected to hold a hash-map roster.
+
+    def in_spec(self, content):
+        '''Take an iterable of strings. Convert to tag objects.'''
+        self.extend(self._retrieve_defined(content))
+        self.sort()
+
+    def not_in_spec(self):
+        '''An empty tag list is still useful. Can be added to later.'''
+        self.in_spec(())
+
+    def _retrieve_defined(self, content):
+        '''Check raw content against tag roster.'''
+        for key in cbg.misc.make_listlike(content):
+            try:
+                yield self.paragraph_class.registry[key]
+            except KeyError as e:
+                s = 'Tag markup "{}" does not appear in roster.'
+                raise Tag.TaggingError(s.format(key)) from e
+
+    def as_set(self, selector_function=lambda t: True):
+        '''A subset of tags in the field.'''
+        return set(filter(selector_function, self))
+
+    def as_string(self, selection):
+        '''Meant to be overridden, as for CBG's advanced tags.
+
+        This method is intended to be called directly when different
+        kinds of tags are to be printed on different parts of a card,
+        hence the "selection" argument.
+
+        '''
+        return ', '.join(map(str, selection)).capitalize()
+
+    def __str__(self):
+        return self.as_string(self)
 
 
 class AdvancedTag(Tag):
@@ -108,49 +151,7 @@ class AdvancedTag(Tag):
         return not self.syntactic
 
 
-class CardTagField(elements.CardContentField):
-    '''A content field that uses a set of tags like a paragraph.'''
-
-    key = keys.TAGS
-    paragraph_class = Tag  # Expected to hold a hash-map roster.
-
-    def in_spec(self, content):
-        '''Take an iterable of strings. Convert to tag objects.'''
-        self.extend(self._retrieve_defined(content))
-        self.sort()
-
-    def not_in_spec(self):
-        '''An empty tag list is still useful. Can be added to later.'''
-        self.in_spec(())
-
-    def _retrieve_defined(self, content):
-        '''Check raw content against tag roster.'''
-        for key in cbg.misc.make_listlike(content):
-            try:
-                yield self.paragraph_class.registry[key]
-            except KeyError as e:
-                s = 'Tag markup "{}" does not appear in roster.'
-                raise Tag.TaggingError(s.format(key)) from e
-
-    def as_set(self, selector_function=lambda t: True):
-        '''A subset of tags in the field.'''
-        return set(filter(selector_function, self))
-
-    def as_string(self, selection):
-        '''Meant to be overridden, as for CBG's advanced tags.
-
-        This method is intended to be called directly when different
-        kinds of tags are to be printed on different parts of a card,
-        hence the "selection" argument.
-
-        '''
-        return ', '.join(map(str, selection)).capitalize()
-
-    def __str__(self):
-        return self.as_string(self)
-
-
-class AdvancedCardTagField(CardTagField):
+class AdvancedTagField(TagField):
     '''Support for AdvancedTag features.'''
 
     paragraph_class = AdvancedTag

@@ -23,16 +23,12 @@ Copyright 2014-2015 Viktor Eikman
 '''
 
 from . import keys
-from . import elements
+from . import misc
 from . import style
 from . import sample
 from . import svg
+from . import content
 from . import size
-from . import card
-from . import deck
-from . import page
-from . import tag
 from . import app
 
-__all__ = [app, card, deck, elements, keys, page, size, style, tag,
-           sample, svg]
+__all__ = [app, content, keys, misc, sample, size, svg, style]

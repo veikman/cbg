@@ -4,8 +4,6 @@
 
 import unittest
 
-import numpy
-
 import cbg
 
 

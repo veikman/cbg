@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 '''Standard string keys.
 
+These are used for the extraction of certain common content out of raw
+text specifications, but also to track the contents of wardrobes etc.
+
 Presented as a module to prevent circular importation problems.
 
 '''

@@ -24,29 +24,25 @@ Copyright 2014-2015 Viktor Eikman
 
 import itertools
 
-import cbg.elements
+from cbg.content import elements
 
 
-class HumanReadablePlayingCard(cbg.elements.DerivedFromSpec, list):
+class Card(elements.DerivedFromSpec, elements.Presentable, list):
     '''The text content of a single playing card, as a list of fields.
 
     Content is tracked by field type, and each field type has its own
-    class, listed in the "field_classes" class attribute, a tuple.
+    class, listed in the "field_classes" class attribute.
 
     If there is a field corresponding to a title, it should generally
     be populated first and use the "key_title" attribute of the card
     class as its key, because that way its content will appear in
     exception messages etc., to help debug subsequent problems.
 
-    SVG (XML) typesetting information can be composited onto instances
-    as the "presenter" attribute, which is based on the "presenter_class"
-    class attribute.
-
     The number of copies in a deck is tracked at the deck level, not here.
 
     '''
+
     field_classes = tuple()
-    presenter_class = None
 
     _untitled_base = 'untitled card'
     _untitled_iterator = itertools.count(start=1)
@@ -56,12 +52,8 @@ class HumanReadablePlayingCard(cbg.elements.DerivedFromSpec, list):
         super().__init__()
         self._generated_title = self._generate_title()
 
-        self.presenter = None  # Graphics encoder not mandatory.
-        if self.presenter_class:
-            self.presenter = self.presenter_class(self)
-
         for f in self.field_classes:
-            # Instantiate empty fields for content.
+            # Instantiate as-yet empty fields for content.
             self.append(f(self))
 
         self._process(**raw_data)

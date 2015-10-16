@@ -30,11 +30,11 @@ import logging
 import re
 import subprocess
 
-import cbg.deck as deck
-import cbg.page as page
+import cbg.content.deck as deck
+import cbg.svg.page as page
 
 
-HELP_SELECT = ('Mini-language for card selection: [AMOUNT:][tag=]REGEX',
+HELP_SELECT = ('Syntax for card selection: [AMOUNT:][tag=]REGEX',
                'AMOUNT defaults to no change (whitelist) or zero (blacklist).',
                'REGEX with "tag=" refers to one card tag, else titles.')
 
@@ -85,13 +85,8 @@ class Application():
         self.folder_svg = folder_svg
         self.folder_printing = folder_printing
 
-        parser = self.cli()
-        self.args = parser.parse_args()
-
-        if self.args.verbose:
-            logging.basicConfig(level=logging.DEBUG)
-        else:
-            logging.basicConfig(level=logging.INFO)
+        self.args = self.cli().parse_args()
+        self.configure_logging()
 
     def cli(self):
         '''Create, but do not run, a command-line argument parser.'''
@@ -129,10 +124,24 @@ class Application():
                             action='store_true')
         s = 'container format inferred from filename'
         parser.add_argument('-f', '--file-output', help=s)
-        parser.add_argument('-v', '--verbose', help='extra logging',
-                            action='store_true')
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('-v', '--verbose', help='extra logging',
+                           action='store_true')
+        group.add_argument('-q', '--quiet', help='less logging',
+                           action='store_true')
 
         return parser
+
+    def configure_logging(self):
+        if self.args.verbose:
+            level = logging.DEBUG
+        elif self.args.quiet:
+            level = logging.WARNING
+        else:
+            level = logging.INFO
+
+        logging.getLogger().setLevel(level)
 
     def execute(self):
         if self.args.no_fronts and not self.args.backs:
@@ -242,21 +251,29 @@ class Application():
         def new_page():
             page_queue.append(page.Page(left_to_right=front, side=side_name))
 
-        def insert(footprint, xml_function):
+        def insert(cardcopy, presenter_class):
+            if not presenter_class:
+                s = '{} has no presenter class for current side.'
+                logging.debug(s.format(cardcopy.__class__.__name__))
+                return
+
+            footprint = presenter_class.size.footprint
             if not page_queue[-1].can_fit(footprint):
                 new_page()
-            xml = xml_function(page_queue[-1].free_spot(footprint))
-            page_queue[-1].add(footprint, xml)
+
+            origin = page_queue[-1].free_spot(footprint)
+            presenter = presenter_class(cardcopy, origin=origin)
+
+            page_queue[-1].add(footprint, presenter.xml)
 
         new_page()
         for listing in self.specs.values():
             # The requisite number of copies of each card.
             for cardcopy in listing:
-                foot = cardcopy.presenter.size.footprint
                 if front:
-                    insert(foot, cardcopy.presenter.front)
+                    insert(cardcopy, cardcopy.presenter_class_front)
                 if back:
-                    insert(foot, cardcopy.presenter.back)
+                    insert(cardcopy, cardcopy.presenter_class_back)
 
         return page_queue
 

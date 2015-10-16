@@ -3,10 +3,10 @@
 
 import unittest
 
-import cbg.tag as tag
+import cbg.content.tag as tag
 
 
-tag.CardTagField.presenter_class = lambda *_: None
+tag.TagField.presenter_class = lambda *_: None
 
 
 class Basics(unittest.TestCase):
@@ -17,18 +17,18 @@ class Basics(unittest.TestCase):
         self.t2 = tag.Tag('2')
 
     def test_unfilled_boolean(self):
-        f = tag.CardTagField(None)
+        f = tag.TagField(None)
         self.assertFalse(f)
         self.assertEqual(len(f), 0)
 
     def test_nothing_in_spec(self):
-        f = tag.CardTagField(None)
+        f = tag.TagField(None)
         f.not_in_spec()
         self.assertFalse(f)
         self.assertEqual(len(f), 0)
 
     def test_from_spec(self):
-        f = tag.CardTagField(None)
+        f = tag.TagField(None)
 
         f.in_spec(('aa', 'c c'))
         self.assertIn(self.t0, f)
@@ -44,7 +44,7 @@ class Basics(unittest.TestCase):
         self.assertEqual(len(f), 3)
 
     def test_to_string(self):
-        f = tag.CardTagField(None)
+        f = tag.TagField(None)
 
         f.in_spec(('aa'))
         self.assertEqual(str(f), 'Aa')
@@ -62,7 +62,7 @@ class Advanced(unittest.TestCase):
         self.t1 = tag.AdvancedTag('t1')
         self.t2 = tag.AdvancedTag('t2', subordinate_to=self.t1)
         self.t3 = tag.AdvancedTag('t3', subordinate_to=self.t1)
-        self.f = tag.AdvancedCardTagField(None)
+        self.f = tag.AdvancedTagField(None)
 
     def test_no_hierarchical_relationship(self):
         self.assertIsNone(self.t1.subordinate_to)
@@ -115,4 +115,4 @@ class Safeguards(unittest.TestCase):
     def test_open_hierarchy(self):
         t2 = tag.AdvancedTag('b', syntactic=True, subordinate_to=self.t1)
         with self.assertRaises(tag.AdvancedTag.TaggingError):
-            tag.AdvancedCardTagField(None).in_spec(t2)
+            tag.AdvancedTagField(None).in_spec(t2)

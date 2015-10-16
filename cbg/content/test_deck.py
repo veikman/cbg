@@ -4,10 +4,11 @@
 import unittest
 import unittest.mock
 
-import cbg.card as card
-import cbg.deck as deck
+import cbg.content.card as card
+import cbg.content.deck as deck
 import cbg.keys as keys
 import cbg
+
 
 FIRST = 'First'
 SECOND = 'Second'
@@ -22,27 +23,27 @@ SPEC = {keys.METADATA: {keys.DEFAULTS: {keys.COPIES: 2}},
 DUMMY = {keys.DATA: {keys.TITLE: 't0'}}
 
 
-class TitleField(cbg.elements.CardContentField):
+class TitleField(cbg.content.field.Field):
     key = keys.TITLE
-    presenter_class = cbg.svg.presenter.SVGField
+    presenter_class_front = cbg.svg.presenter.FieldBase
 
 
-class CardSubclass(card.HumanReadablePlayingCard):
+class CardSubclass(card.Card):
     field_classes = (TitleField,)
 
 
 class Card(unittest.TestCase):
     def test_empty(self):
-        card.HumanReadablePlayingCard()
+        card.Card()
 
     def test_data_empty(self):
         with self.assertRaises(CardSubclass.SpecificationError):
-            card.HumanReadablePlayingCard(**{keys.DATA: {}})
+            card.Card(**{keys.DATA: {}})
 
     def test_creation(self):
         o = unittest.mock.patch.object
-        with o(card.HumanReadablePlayingCard, '_process') as m:
-            card.HumanReadablePlayingCard(**DUMMY)
+        with o(card.Card, '_process') as m:
+            card.Card(**DUMMY)
             m.assert_called_once_with(**DUMMY)
 
     def test_sorting(self):

@@ -26,10 +26,10 @@ import collections
 import copy
 import itertools
 
-import cbg.elements
+from cbg.content import elements
 
 
-class Deck(cbg.elements.DerivedFromSpec, collections.Counter):
+class Deck(elements.DerivedFromSpec, collections.Counter):
     '''The right number of copies of every card that belongs in a deck.'''
 
     _untitled_base = 'untitled deck'

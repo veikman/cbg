@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''A module of superclasses for types of content included on a playing card.
+'''Various types of content included on a playing card.
 
 ------
 
@@ -26,6 +26,18 @@ import itertools
 
 import cbg.misc
 import cbg.keys
+
+
+class Presentable():
+    '''Superclass for content owners that can be represented visually.
+
+    Separate SVG presenter classes can be specified for the different sides
+    of a card.
+
+    '''
+
+    presenter_class_front = None
+    presenter_class_back = None
 
 
 class DerivedFromSpec():
@@ -87,30 +99,3 @@ class Paragraph():
 
     def __str__(self):
         return self.string
-
-
-class CardContentField(list):
-    '''Superclass for any type of human-readable text content on a card.
-
-    Used to create classes to represent ideal field types, which are then
-    instantiated by card types.
-
-    '''
-    key = None
-    presenter_class = None
-    paragraph_class = Paragraph
-
-    def __init__(self, parent):
-        '''Produce a copy of this field to place on a parent card.'''
-        super().__init__()
-        self.parent = parent
-        self.presenter = self.presenter_class(self)
-
-    def in_spec(self, content):
-        '''Beaviour when the field's key is found in the raw specification.'''
-        for raw in cbg.misc.make_listlike(content):
-            self.append(self.paragraph_class(raw))
-
-    def not_in_spec(self):
-        '''Behaviour when the raw specification does not mention the field.'''
-        pass

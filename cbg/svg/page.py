@@ -30,7 +30,7 @@ import lxml.builder
 import numpy
 
 import cbg.sample.size as size
-import cbg.svg as svg
+from cbg.svg import presenter
 
 
 class Page():
@@ -57,8 +57,8 @@ class Page():
         self.left_to_right = left_to_right
 
         head = dict()
-        head['xmlns'] = svg.presenter.NAMESPACE_SVG
-        head['xml'] = svg.presenter.NAMESPACE_XML
+        head['xmlns'] = presenter.NAMESPACE_SVG
+        head['xml'] = presenter.NAMESPACE_XML
         head['baseProfile'] = 'full'
         head['version'] = '1.1'
 

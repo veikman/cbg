@@ -4,5 +4,6 @@
 from . import transform
 from . import cursor
 from . import presenter
+from . import page
 
-__all__ = [transform, cursor, presenter]
+__all__ = [transform, cursor, page, presenter]
