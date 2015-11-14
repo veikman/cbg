@@ -75,7 +75,7 @@ class Tag(field.Paragraph):
         return str(self) < str(other)
 
 
-class TagField(field.ContainerField):
+class TagField(field.ContainerList):
     '''A content field that uses a set of tags as its sole paragraph.
 
     A tag field is intended to programmatically expandable as part of

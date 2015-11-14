@@ -30,6 +30,8 @@ from cbg.content import elements
 class Field(elements.Presentable):
     '''Superclass for any human-readable content that varies between cards.
 
+    Abstract base class.
+
     Used to create classes to represent ideal field types, which are
     then instantiated by card types and (normally) populated from
     specification files.
@@ -48,20 +50,28 @@ class Field(elements.Presentable):
         raise NotImplementedError
 
 
-class ContainerField(Field, list):
-    '''A field that forces its content into a subordinate type of field.'''
+class ContainerField(Field):
+    '''A field that forces its content into a subordinate type of field.
+
+    Abstract base class.
+
+    '''
 
     # A class encapsulates and processes contents at a lower level.
     content_class = None
+
+    def not_in_spec(self):
+        '''Absence of data leaves an empty yet perhaps visible container.'''
+        pass
+
+
+class ContainerList(ContainerField, list):
+    '''A one-dimensional array of subordinate fields.'''
 
     def in_spec(self, content):
         '''Encapsulate each piece of content.'''
         for raw in cbg.misc.make_listlike(content):
             self.append(self.content_class(content=raw))
-
-    def not_in_spec(self):
-        '''Absence of raw data leaves an empty yet perhaps visible field.'''
-        pass
 
 
 class Paragraph(Field):
@@ -110,7 +120,7 @@ class Paragraph(Field):
         return self.string
 
 
-class TextField(ContainerField):
+class TextField(ContainerList):
     '''A field of zero or more paragraphs.'''
 
     content_class = Paragraph
