@@ -17,18 +17,18 @@ class Basics(unittest.TestCase):
         self.t2 = tag.Tag('2')
 
     def test_unfilled_boolean(self):
-        f = tag.TagField(None)
+        f = tag.TagField()
         self.assertFalse(f)
         self.assertEqual(len(f), 0)
 
     def test_nothing_in_spec(self):
-        f = tag.TagField(None)
+        f = tag.TagField()
         f.not_in_spec()
         self.assertFalse(f)
         self.assertEqual(len(f), 0)
 
     def test_from_spec(self):
-        f = tag.TagField(None)
+        f = tag.TagField()
 
         f.in_spec(('aa', 'c c'))
         self.assertIn(self.t0, f)
@@ -44,7 +44,7 @@ class Basics(unittest.TestCase):
         self.assertEqual(len(f), 3)
 
     def test_to_string(self):
-        f = tag.TagField(None)
+        f = tag.TagField()
 
         f.in_spec(('aa'))
         self.assertEqual(str(f), 'Aa')
@@ -62,7 +62,7 @@ class Advanced(unittest.TestCase):
         self.t1 = tag.AdvancedTag('t1')
         self.t2 = tag.AdvancedTag('t2', subordinate_to=self.t1)
         self.t3 = tag.AdvancedTag('t3', subordinate_to=self.t1)
-        self.f = tag.AdvancedTagField(None)
+        self.f = tag.AdvancedTagField()
 
     def test_no_hierarchical_relationship(self):
         self.assertIsNone(self.t1.subordinate_to)
@@ -105,7 +105,7 @@ class Safeguards(unittest.TestCase):
         self.t1 = tag.AdvancedTag('a', syntactic=True)
 
     def test_collision(self):
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(tag.AdvancedTag.TaggingError):
             tag.AdvancedTag('a')
 
     def test_disparate_hierarchy(self):
@@ -114,5 +114,6 @@ class Safeguards(unittest.TestCase):
 
     def test_open_hierarchy(self):
         t2 = tag.AdvancedTag('b', syntactic=True, subordinate_to=self.t1)
+        self.assertIs(t2.subordinate_to, self.t1)
         with self.assertRaises(tag.AdvancedTag.TaggingError):
-            tag.AdvancedTagField(None).in_spec(t2)
+            tag.AdvancedTagField().in_spec(t2)

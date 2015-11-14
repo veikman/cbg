@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 '''Unit tests for CBG.'''
 
+import logging
 import unittest
 import unittest.mock
 
@@ -23,7 +24,22 @@ SPEC = {keys.METADATA: {keys.DEFAULTS: {keys.COPIES: 2}},
 DUMMY = {keys.DATA: {keys.TITLE: 't0'}}
 
 
-class TitleField(cbg.content.field.Field):
+def suppress(logging_level):
+    '''Temporarily silence logging up to the named level.
+
+    This function returns a function-altering function.
+
+    '''
+    def decorator(method):
+        def replacement(instance, *args, **kwargs):
+            logging.disable(logging_level)
+            method(instance, *args, **kwargs)
+            logging.disable(logging.NOTSET)
+        return replacement
+    return decorator
+
+
+class TitleField(cbg.content.field.TextField):
     key = keys.TITLE
     presenter_class_front = cbg.svg.presenter.FieldBase
 
@@ -36,6 +52,7 @@ class Card(unittest.TestCase):
     def test_empty(self):
         card.Card()
 
+    @suppress(logging.ERROR)
     def test_data_empty(self):
         with self.assertRaises(CardSubclass.SpecificationError):
             card.Card(**{keys.DATA: {}})

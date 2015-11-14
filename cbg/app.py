@@ -160,7 +160,12 @@ class Application():
         self.specs = collections.OrderedDict()
         for d in sorted(self.read_deck_specs()):
             # Actual deck objects are not preserved here.
-            self.specs[d.title] = d.all_sorted()
+            try:
+                self.specs[d.title] = d.all_sorted()
+            except:
+                s = 'An error occurred while sorting data for deck "{}".'
+                logging.critical(s.format(d.title))
+                raise
 
         self._all_layouts()
         return self._output()

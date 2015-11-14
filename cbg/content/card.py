@@ -23,6 +23,7 @@ Copyright 2014-2015 Viktor Eikman
 '''
 
 import itertools
+import logging
 
 from cbg.content import elements
 
@@ -54,13 +55,18 @@ class Card(elements.DerivedFromSpec, elements.Presentable, list):
 
         for f in self.field_classes:
             # Instantiate as-yet empty fields for content.
-            self.append(f(self))
+            self.append(f())
 
         self._process(**raw_data)
 
     def _process(self, **raw_data):
         '''All the work from terse specs to complete contents.'''
-        self._populate_fields(raw_data)
+        try:
+            self._populate_fields(raw_data)
+        except:
+            s = 'An error occurred while processing "{}".'
+            logging.error(s.format(self))
+            raise
 
     def _populate_fields(self, raw_data):
         '''Put data from incoming raws into empty fields.
@@ -78,12 +84,28 @@ class Card(elements.DerivedFromSpec, elements.Presentable, list):
             except KeyError:
                 field.not_in_spec()
             else:
-                field.in_spec(value)
+                self._populate_single_field(field, value)
 
         for key, value in raw_data.items():
             s = 'Unrecognized field in data spec for card "{}": "{}: {}".'
             s = s.format(self.title, key, value)
             raise self.SpecificationError(s)
+
+    def _populate_single_field(self, field, value):
+        '''Populate a field with its data.
+
+        Meant to be overridden. One example of a situation where that
+        would be appropriate is where tags are used and the mere presence
+        of data for a specific field (other than the tag field) implies
+        a certain tag. That would be the case if, for example, the card
+        can be used to perform an action if there is a populated action
+        field, and that implies that the card should also be decorated
+        with an action tag. The tagging would need to be handled at this
+        level, because the action description field would not have direct
+        access to the card or its tags.
+
+        '''
+        field.in_spec(value)
 
     @property
     def sorting_keys(self):

@@ -73,29 +73,3 @@ class DerivedFromSpec():
         '''Create a hitherto unused title. Useful mainly for hash maps.'''
         return '{} {}'.format(self._untitled_base,
                               next(self._untitled_iterator))
-
-
-class Paragraph():
-    '''A level below a content field in organization.
-
-    This basic form of a text element is suitable for use as a
-    paragraph. It is subclassed in the "tag" module to represent a tag
-    in a horizontal list.
-
-    '''
-
-    def __init__(self, raw):
-        self.raw = raw  # Useful for comparisons between specs.
-        self.string = self.process(self.raw)
-
-    def process(self, raw):
-        '''Convert from e.g. integer in YAML specs to string.
-
-        This method is intended to be overridden for the integration
-        of a string templating system.
-
-        '''
-        return str(raw)
-
-    def __str__(self):
-        return self.string

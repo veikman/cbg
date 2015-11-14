@@ -32,14 +32,16 @@ Copyright 2014-2015 Viktor Eikman
 
 import cbg.keys as keys
 import cbg.misc
-from cbg.content import elements
 from cbg.content import field
 
 
-class Tag(elements.Paragraph):
+class Tag(field.Paragraph):
     '''A word or phrase used to provide categorical information.
 
-    Registered on definition.
+    Unlike regular paragraphs, a tag needs to be defined with a key on
+    initialization, as a means of controlling for misspelled tags in specs,
+    and to enable some special features of tags in the AdvancedTag
+    subclass.
 
     '''
 
@@ -50,41 +52,53 @@ class Tag(elements.Paragraph):
         pass
 
     def __init__(self, key):
-        super().__init__(key)
+        '''Register a unique tag.'''
+        super().__init__(content=key)
 
         # Automatically keep track of which tags have been created for
         # a game, as a roster for specification recognition.
-        assert self.raw not in self.registry
-        self.registry[self.raw] = self
+        if key in self.registry:
+            raise self.TaggingError('"{}" defined more than once.'.format(key))
+        self.registry[key] = self
+
+    @classmethod
+    def get(cls, key):
+        '''Act like a dictionary. Check raw content against tag roster.'''
+        try:
+            return cls.registry[key]
+        except KeyError as e:
+            s = 'Tag markup "{}" does not appear in roster.'
+            raise cls.TaggingError(s.format(key)) from e
 
     def __lt__(self, other):
         '''Tags sort alphabetically.'''
         return str(self) < str(other)
 
 
-class TagField(field.Field):
-    '''A content field that uses a set of tags like a paragraph.'''
+class TagField(field.ContainerField):
+    '''A content field that uses a set of tags as its sole paragraph.
+
+    A tag field is intended to programmatically expandable as part of
+    the logic of a CBG application.
+
+    '''
 
     key = keys.TAGS
-    paragraph_class = Tag  # Expected to hold a hash-map roster.
+    content_class = Tag  # Expected to support Tag's "get()" API.
 
     def in_spec(self, content):
-        '''Take an iterable of strings. Convert to tag objects.'''
-        self.extend(self._retrieve_defined(content))
+        '''Take an iterable of strings. Convert to tag objects.
+
+        May be called several times.
+
+        '''
+        for key in cbg.misc.make_listlike(content):
+            self.append(self.content_class.get(key))
         self.sort()
 
     def not_in_spec(self):
-        '''An empty tag list is still useful. Can be added to later.'''
+        '''An empty tag list is still useful.'''
         self.in_spec(())
-
-    def _retrieve_defined(self, content):
-        '''Check raw content against tag roster.'''
-        for key in cbg.misc.make_listlike(content):
-            try:
-                yield self.paragraph_class.registry[key]
-            except KeyError as e:
-                s = 'Tag markup "{}" does not appear in roster.'
-                raise Tag.TaggingError(s.format(key)) from e
 
     def as_set(self, selector_function=lambda t: True):
         '''A subset of tags in the field.'''
@@ -154,14 +168,14 @@ class AdvancedTag(Tag):
 class AdvancedTagField(TagField):
     '''Support for AdvancedTag features.'''
 
-    paragraph_class = AdvancedTag
+    content_class = AdvancedTag
 
     def in_spec(self, raw):
         super().in_spec(raw)
         for t in self.subordinates:
             if t.subordinate_to not in self:
-                s = 'Tag "{}" lacks master "{}".'
-                raise Tag.TaggingError(s.format(t, t.subordinate_to))
+                s = 'Tag "{}" lacks master "{}".'.format(t, t.subordinate_to)
+                raise self.content_class.TaggingError(s)
 
     @property
     def syntactic(self):
