@@ -63,7 +63,7 @@ class Page():
         head['version'] = '1.1'
 
         # The size of the page is explicitly specified in millimetres.
-        x, y = self.full_size.footprint
+        x, y = self.full_size
         head['width'] = '{}mm'.format(x)
         head['height'] = '{}mm'.format(y)
 
@@ -77,7 +77,7 @@ class Page():
         head['viewBox'] = ' '.join(map(str, (0, 0, x, y)))
 
         self.xml = lxml.builder.E.svg(lxml.builder.E.defs, head)
-        self.printable = self.full_size.footprint - 2 * self.full_size.margins
+        self.printable = self.full_size - 2 * self.full_size.margins
 
         self.row_heights = []
         self._new_row()

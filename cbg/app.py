@@ -262,14 +262,13 @@ class Application():
                 logging.debug(s.format(cardcopy.__class__.__name__))
                 return
 
-            footprint = presenter_class.size.footprint
-            if not page_queue[-1].can_fit(footprint):
+            if not page_queue[-1].can_fit(presenter_class.size):
                 new_page()
 
-            origin = page_queue[-1].free_spot(footprint)
+            origin = page_queue[-1].free_spot(presenter_class.size)
             presenter = presenter_class(cardcopy, origin=origin)
 
-            page_queue[-1].add(footprint, presenter.xml)
+            page_queue[-1].add(presenter_class.size, presenter.xml)
 
         new_page()
         for listing in self.specs.values():

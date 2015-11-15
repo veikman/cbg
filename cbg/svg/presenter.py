@@ -76,7 +76,7 @@ class SVGPresenter():
         self.content_source = content_source
         self.parent_presenter = parent_presenter
 
-        if self.size and origin is None:
+        if self.size is not None and origin is None:
             raise ValueError('Presenter with a size must have an origin.')
         self._origin = numpy.array(origin) if origin is not None else origin
 
@@ -155,7 +155,7 @@ class SVGPresenter():
 
         '''
         size = self.canvas_owner.size
-        card_width = size.footprint[0]
+        card_width = size[0]
         margin = size.outer + 2 * size.inner
         horizontal = self.wardrobe.horizontal(card_width, margin)
 
@@ -196,7 +196,7 @@ class SVGPresenter():
         # Determine the two anchor points of the line.
         size = self.canvas_owner.size
         a = line_level + (size.outer, 0)
-        b = line_level + (size.footprint[0] - size.outer, 0)
+        b = line_level + (size[0] - size.outer, 0)
 
         # Encode the line.
         self.wardrobe.mode_accent(stroke=True)
@@ -369,7 +369,7 @@ class CardBack(CardBase):
     def __init__(self, content_source, **kwargs):
         super().__init__(content_source, **kwargs)
 
-        self.cursor.jump(self.size.footprint[1] / 3)
+        self.cursor.jump(self.size[1] / 3)
 
         self._represent_fields('presenter_class_back')
 

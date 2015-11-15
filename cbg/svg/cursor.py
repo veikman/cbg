@@ -70,7 +70,7 @@ class FromBottom(GraphicsElementInsertionCursor):
         '''Insert first, then move (up). State position from top of card.'''
         ret = self.displacement
         self.displacement += height
-        return self.parent.size.footprint[1] - ret
+        return self.parent.size[1] - ret
 
     def text(self, size, envelope):
         self.slide(envelope - size)

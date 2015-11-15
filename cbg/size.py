@@ -28,27 +28,34 @@ import cbg.keys as keys
 import cbg.misc as misc
 
 
-class Area():
-    '''A 2D surface area. In fact, a rectangle.'''
+class Array(numpy.ndarray):
+    '''A point, area, grid system etc.
 
-    class Point(numpy.ndarray):
-        '''A point in a coordinate system.
+    This is just the bare minimum needed to subclass a numpy array for
+    use as a convenient superclass elsewhere.
 
-        This is a bare minimum needed to subclass a numpy array for
-        the purpose. It's used here mainly to avoid having to override
-        a huge amount of magic methods with reference to a composited
-        array in order to use mathematical operators (syntactic sugar).
+    numpy is used mainly to avoid having to override magic methods
+    with reference to a composited array.
 
-        '''
+    '''
 
-        def __new__(cls, position, *args, **kwargs):
-            obj = numpy.asarray(numpy.array(position, dtype=float)).view(cls)
-            return obj
+    def __new__(cls, data, *args, **kwargs):
+        obj = numpy.asarray(numpy.array(data)).view(cls)
+        return obj
 
-        def __array_finalize__(self, obj):
-            pass
+    def __array_finalize__(self, obj):
+        pass
 
-    class EdgePoint(Point):
+
+class Rectangle(Array):
+    '''A 2D surface area. In fact, a rectangle.
+
+    In this class, the main array provided by the superclass represents the
+    width × height footprint of the area as two numbers, typically in mm.
+
+    '''
+
+    class EdgePoint(Array):
         '''A point on the edge of an area.
 
         Instances can calculate displacement from their own position
@@ -72,12 +79,10 @@ class Area():
                                   self.displacement_factors)
 
     def __init__(self, footprint):
-        self.footprint = numpy.array(footprint)
-
-        self.upper_left = self.EdgePoint(self.footprint * (0, 0), (1, 1))
-        self.upper_right = self.EdgePoint(self.footprint * (1, 0), (-1, 1))
-        self.lower_left = self.EdgePoint(self.footprint * (0, 1), (1, -1))
-        self.lower_right = self.EdgePoint(self.footprint * (1, 1), (-1, -1))
+        self.upper_left = self.EdgePoint(self * (0, 0), (1, 1))
+        self.upper_right = self.EdgePoint(self * (1, 0), (-1, 1))
+        self.lower_left = self.EdgePoint(self * (0, 1), (1, -1))
+        self.lower_right = self.EdgePoint(self * (1, 1), (-1, -1))
 
     def corners(self):
         '''In clockwise order starting nearest to the geometric origin.
@@ -97,11 +102,11 @@ class Area():
         such, where the x coordinate is larger than the y coordinate.
         This produces a pattern like the following:
 
-         2  3
-        1    4
+          2  3
+        1      4
 
-        8    5
-         7  6
+        8      5
+          7  6
 
         Used to generate frames.
 
@@ -122,7 +127,7 @@ class Area():
             x_first = not x_first
 
 
-class CardSize(Area):
+class CardSize(Rectangle):
     '''A card in millimetres.'''
     def __init__(self, footprint, border_outer, border_inner):
         super().__init__(footprint)
@@ -135,15 +140,14 @@ class CardSize(Area):
         Used to make landscape versions of (normally) portrait card sizes.
 
         '''
-        return self.__class__(numpy.flipud(self.footprint),
-                              self.outer, self.inner)
+        return self.__class__(numpy.flipud(self), self.outer, self.inner)
 
     @property
     def interior_width(self):
-        return self.footprint[0] - 2 * self.outer - 2 * self.inner
+        return self[0] - 2 * self.outer - 2 * self.inner
 
 
-class PageSize(Area):
+class PageSize(Rectangle):
     '''A page in millimetres.'''
     def __init__(self, footprint, margins):
         super().__init__(footprint)
