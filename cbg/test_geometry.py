@@ -18,7 +18,7 @@ class ArrayConstructor(unittest.TestCase):
             return a
 
     def compare(self, ref):
-        a = cbg.size.Array(ref)
+        a = cbg.geometry.Array(ref)
         self.assertTupleEqual(self.totuple(a), ref)
         return a
 
@@ -48,7 +48,7 @@ class Rectangle(unittest.TestCase):
         self.assertEqual(tuple(point), ref)
 
     def test_edgepoint(self):
-        p = cbg.size.Rectangle.EdgePoint((2, 3), (1, -1))
+        p = cbg.geometry.Rectangle.EdgePoint((2, 3), (1, -1))
         self.compare(p, (2, 3))
         self.assertEqual(p.dtype, numpy.int64)
 
@@ -65,7 +65,7 @@ class Rectangle(unittest.TestCase):
         self.compare(d, (12, -7))
 
     def test_corners(self):
-        a = cbg.size.Rectangle((4, 3))
+        a = cbg.geometry.Rectangle((4, 3))
         self.compare(a, (4, 3))
 
         ps = a.corners()

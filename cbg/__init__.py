@@ -24,6 +24,7 @@ Copyright 2014-2015 Viktor Eikman
 
 from . import keys
 from . import misc
+from . import geometry
 from . import style
 from . import sample
 from . import svg
@@ -31,4 +32,4 @@ from . import content
 from . import size
 from . import app
 
-__all__ = [app, content, keys, misc, sample, size, svg, style]
+__all__ = [app, content, geometry, keys, misc, sample, size, svg, style]
