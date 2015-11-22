@@ -22,6 +22,9 @@ class ArrayConstructor(unittest.TestCase):
         self.assertTupleEqual(self.totuple(a), ref)
         return a
 
+    def test_0x1_int(self):
+        self.compare(())
+
     def test_1x1_int(self):
         a = self.compare((1,))
         self.assertEqual(a.dtype, numpy.dtype('int'))
@@ -41,6 +44,20 @@ class ArrayConstructor(unittest.TestCase):
     def test_2x2_none(self):
         a = self.compare(((None, None), (None, None)))
         self.assertEqual(a.dtype, numpy.dtype('object'))
+
+
+class Flexibility(unittest.TestCase):
+    def test_resize(self):
+        '''This is not really intended to succeed.
+
+        This unit test remains here in the hope of one day failing,
+        at which time it may be possible to reimplement Map as a subclass
+        of Array. Refer to the Map documentation.
+
+        '''
+        a = cbg.geometry.Array(((1,)))
+        with self.assertRaises(ValueError):
+            a.resize((2, 2))
 
 
 class Rectangle(unittest.TestCase):

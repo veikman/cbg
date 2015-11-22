@@ -31,7 +31,7 @@ import cbg.misc as misc
 
 class CardSize(cbg.geometry.Rectangle):
     '''A card in millimetres.'''
-    def __init__(self, footprint, border_outer, border_inner):
+    def __init__(self, footprint, border_outer=1, border_inner=0):
         super().__init__(footprint)
         self.outer = border_outer
         self.inner = border_inner
