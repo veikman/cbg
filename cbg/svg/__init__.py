@@ -6,5 +6,7 @@ from . import cursor
 from . import presenter
 from . import page
 from . import grid
+from . import basefilter
+from . import filter
 
-__all__ = [transform, cursor, grid, page, presenter]
+__all__ = [basefilter, filter, transform, cursor, grid, page, presenter]

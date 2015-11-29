@@ -59,7 +59,8 @@ class SVGPresenter():
     # Canvas size is typically set for cards only.
     size = None
 
-    def __init__(self, content_source, parent_presenter=None, origin=None):
+    def __init__(self, content_source, parent_presenter=None, defs=None,
+                 origin=None):
         '''Produce SVG XML based on some content: the content_source object.
 
         In this base class, just create an empty SVG 'g' (group) element.
@@ -76,8 +77,16 @@ class SVGPresenter():
         self.content_source = content_source
         self.parent_presenter = parent_presenter
 
+        # The defs element is maintained at the second highest level of the
+        # SVG document, by the page. Refer to the Page class.
+        #
+        # When a chain of presenters is instantiated in the application
+        # model, the top presenter receives a reference to the defs element,
+        # which is manipulated through the "define" method of the presenter.
+        self._defs = defs
+
         if self.size is not None and origin is None:
-            raise ValueError('Presenter with a size must have an origin.')
+            raise ValueError('A presenter with a size must have an origin.')
         self._origin = numpy.array(origin) if origin is not None else origin
 
         self._reset_cursors()
@@ -130,8 +139,33 @@ class SVGPresenter():
         return self._presenter_with('size', False)
 
     @property
+    def defs(self):
+        return self._presenter_with('_defs', True)
+
+    @property
     def origin(self):
         return self._presenter_with('_origin', True)
+
+    def define(self, xml):
+        '''Take an etree oject. Add as a definition if new, else ignore.'''
+
+        id_ = xml.get('id')
+
+        if id_ is None:
+            s = 'Definitions must have a set "id" attribute. "{}" does not.'
+            raise ValueError(s.format(lxml.etree.tostring(xml)))
+
+        # Avoid duplicates by ID, to keep the SVG clean.
+        for element in self.defs.iter():
+            if element.get('id') == id_:
+                if lxml.etree.tostring(element) == lxml.etree.tostring(xml):
+                    logging.debug('Excluding duplicate definition.')
+                    return
+                else:
+                    s = 'Dissimilar definitions with shared ID ({}).'
+                    raise ValueError(s.format(id_))
+
+        self.defs.append(xml)
 
     def top_down(self):
         self.canvas_owner._cursor = self.cursor_from_top
@@ -268,6 +302,12 @@ class SVGPresenter():
         pathfinder.closepath()
         self.put_path(pathfinder)
 
+    def insert_rect(self, offset, size, rounding=None):
+        '''Put a rectangle anywhere.'''
+
+        attrib = self._attrdict_rect(offset, size, rounding=rounding)
+        lxml.etree.SubElement(self.xml, 'rect', attrib)
+
     def _wrap(self, content, initial, subsequent):
         return textwrap.wrap(content, width=self._characters_per_line,
                              initial_indent=initial,
@@ -287,10 +327,10 @@ class SVGPresenter():
                                      {'style': 'font-weight:bold'})
         span.text = lead
         try:
-            span.tail = line.split(ii + lead, 1)[1]
+            span.tail = line.partition(ii + lead)[2]
         except IndexError:
-            s = 'Failed to split line "{}" after paragraph lead.' \
-                ' Lead too long for anything to fit after it?'
+            s = ('Failed to split line "{}" after paragraph lead "{}". '
+                 'Lead too long for a word to fit after it?')
             logging.critical(s.format(line, lead))
             raise
 

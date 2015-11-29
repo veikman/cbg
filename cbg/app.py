@@ -266,7 +266,8 @@ class Application():
                 new_page()
 
             origin = page_queue[-1].free_spot(presenter_class.size)
-            presenter = presenter_class(cardcopy, origin=origin)
+            presenter = presenter_class(cardcopy, origin=origin,
+                                        defs=page_queue[-1].defs)
 
             page_queue[-1].add(presenter_class.size, presenter.xml)
 

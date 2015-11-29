@@ -59,6 +59,10 @@ class SquareGrid(presenter.SVGPresenter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Belatedly choose a somewhat arbitrary origin.
+        relative_upper_left = (5, self.cursor.displacement + 1)
+        self._origin = self.origin + numpy.array(relative_upper_left)
+
         # The field as a whole may contain e.g. a text label over the grid,
         # provided by a subclass. To enable filtering, clipping etc. of the
         # grid alone, it is grouped here.
@@ -67,7 +71,6 @@ class SquareGrid(presenter.SVGPresenter):
         for coordinates, cell in numpy.ndenumerate(self.content_source.array):
             origin = coordinates * cell.presenter_class_front.size
             origin += tuple(self.origin)
-            origin += (6, self.cursor.displacement + 5)
             presenter = cell.presenter_class_front(cell, origin=origin,
                                                    parent_presenter=self)
             grid_as_group.append(presenter.xml)

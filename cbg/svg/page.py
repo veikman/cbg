@@ -82,6 +82,16 @@ class Page():
         self.row_heights = []
         self._new_row()
 
+    @property
+    def defs(self):
+        '''Convenient access to the top-level defs container.
+
+        This library supports the SVG convention of maintaining filters
+        etc. as invisible definition elements in "defs".
+
+        '''
+        return self.xml.find('defs')
+
     def _new_row(self):
         self.row_size = numpy.array([0, 0])
 
