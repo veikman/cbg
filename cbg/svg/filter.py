@@ -22,46 +22,66 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
-from cbg.svg import basefilter
+from cbg.svg import svg
 
 
-class GaussianBlur(basefilter.Filter):
-    def __init__(self, horizontal=1, vertical=None):
-        fe = FEGaussianBlur(horizontal, vertical)
-        super().__init__((fe,))
+class Filter(svg.SVGElement):
+    '''A filter composed of a sequence of filter effects.'''
+
+    TAG = 'filter'
+    _id_prefix = 'f'
+
+    @classmethod
+    def new(cls, set_id=None, **attributes):
+        return super().new(set_id=True, **attributes)
+
+
+class GaussianBlur(Filter):
+
+    @classmethod
+    def new(cls, horizontal=1, vertical=None, children=(), **attributes):
+        blur = FEGaussianBlur.new(horizontal, vertical)
+        return super().new(children=(blur,) + children, **attributes)
 
 
 class Feather(GaussianBlur):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.append(FEComposite(in1='SourceGraphic', in2='blur',
-                                operator='atop', result='composite1'))
-        self.append(FEComposite(in2='composite1', operator='in',
-                                result='composite2'))
-        self.append(FEComposite(in2='composite2', operator='in',
-                                result='composite3'))
+
+    @classmethod
+    def new(cls, **kwargs):
+        children = (FEComposite.new(in1='SourceGraphic', in2='blur',
+                                    operator='atop', result='composite1'),
+                    FEComposite.new(in2='composite1', operator='in',
+                                    result='composite2'),
+                    FEComposite.new(in2='composite2', operator='in',
+                                    result='composite3'),
+                    )
+        return super().new(children=children, **kwargs)
 
 
-class FEComposite(basefilter.Effect):
+class FEComposite(svg.SVGElement):
     '''Because "in" is an invalid attribute name in Python, "in1" is used.'''
 
-    svg_name = 'feComposite'
-    significant_attributes = ('in', 'in2', 'operator', 'k1', 'k2', 'k3', 'k4')
+    TAG = 'feComposite'
+    _id_prefix = 'feC'
 
-    def __init__(self, in1=None, **kwargs):
+    @classmethod
+    def new(cls, in1=None, **kwargs):
         if in1 is not None:
             kwargs['in'] = in1
-        super().__init__(**kwargs)
+        return super().new(**kwargs)
 
 
-class FEGaussianBlur(basefilter.Effect):
-    svg_name = 'feGaussianBlur'
-    significant_attributes = ('stdDeviation',)
+class FEGaussianBlur(svg.SVGElement):
 
-    def __init__(self, horizontal, vertical=None):
+    TAG = 'feGaussianBlur'
+    _id_prefix = 'feGB'
+    _id_attribute_blacklist = {'result'}
+
+    @classmethod
+    def new(cls, horizontal, vertical=None, **kwargs):
         if vertical is None:
             stdev = str(horizontal)
         else:
             stdev = ' '.join(map(str, (horizontal, vertical)))
 
-        super().__init__(stdDeviation=stdev, result='blur')
+        return super().new(stdDeviation=stdev, result='blur', **kwargs)
