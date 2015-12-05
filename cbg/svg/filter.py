@@ -25,15 +25,11 @@ Copyright 2014-2015 Viktor Eikman
 from cbg.svg import svg
 
 
-class Filter(svg.SVGElement):
+class Filter(svg.IDElement):
     '''A filter composed of a sequence of filter effects.'''
 
     TAG = 'filter'
     _id_prefix = 'f'
-
-    @classmethod
-    def new(cls, set_id=None, **attributes):
-        return super().new(set_id=True, **attributes)
 
 
 class GaussianBlur(Filter):
