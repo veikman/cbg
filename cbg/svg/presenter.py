@@ -32,6 +32,7 @@ import cbg.misc as misc
 import cbg.sample as sample
 import cbg.svg.cursor
 from cbg.svg import path
+from cbg.svg import shapes
 
 
 NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
@@ -304,9 +305,12 @@ class SVGPresenter():
 
     def insert_rect(self, offset, size, rounding=None):
         '''Put a rectangle anywhere.'''
-
-        attrib = self._attrdict_rect(offset, size, rounding=rounding)
-        lxml.etree.SubElement(self.xml, 'rect', attrib)
+        position = self.origin + offset
+        extra = self.cursor.transform.attrdict(position=position)
+        shape = shapes.Rect.new(position, size, rounding=rounding,
+                                wardrobe=self.wardrobe, **extra)
+        self.xml.append(shape)
+        return shape
 
     def _wrap(self, content, initial, subsequent):
         return textwrap.wrap(content, width=self._characters_per_line,
@@ -347,17 +351,6 @@ class SVGPresenter():
         ret = self.wardrobe.dict_svg_stroke(width)
         ret['x1'], ret['y1'] = misc.rounded(a)
         ret['x2'], ret['y2'] = misc.rounded(b)
-        return ret
-
-    def _attrdict_rect(self, offset, size, rounding=None):
-        ret = self.wardrobe.dict_svg_fill()
-        ret['width'], ret['height'] = misc.rounded(size)
-        position = self.origin + offset
-        ret['x'], ret['y'] = misc.rounded(position)
-        ret.update(self.cursor.transform.attrdict(position=position))
-        if rounding is not None:
-            ret['rx'] = misc.rounded(rounding)
-            ret['ry'] = misc.rounded(rounding)
         return ret
 
     def _attrdict_circle(self, position, radius):

@@ -48,7 +48,7 @@ def make_listlike(object_):
 def rounded(value):
     '''Round off numbers, for e.g. SVG output.
 
-    Coordinate pairs etc. reduced to 0.1 µm accuracy for readability.
+    Coordinate pairs etc. are reduced to 0.1 µm accuracy for readability.
 
     Measurements are also converted to strings, as a convenience for
     working with lxml.
