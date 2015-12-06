@@ -27,7 +27,9 @@ from cbg.svg import svg
 
 class Mask(svg.IDElement):
     TAG = 'mask'
+    _id_prefix = 'm'
 
 
 class ClipPath(svg.IDElement):
     TAG = 'clipPath'
+    _id_prefix = 'cP'

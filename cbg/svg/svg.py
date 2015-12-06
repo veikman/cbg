@@ -22,6 +22,8 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
+import itertools
+
 import lxml.etree
 
 
@@ -40,13 +42,11 @@ class SVGElement(lxml.etree.ElementBase):
     # XML element tag (name), e.g. "rect" for a basic SVG rectangle.
     TAG = ''
 
-    # _id_prefix is preferred over TAG when generating an ID attribute.
+    # _id_prefix is included when generating an ID attribute.
     _id_prefix = ''
 
-    # _id_attribute_blacklist should be populated for element types that
-    # will need an "id" attribute generated, yet which will commonly
-    # have attributes irrelevant to a useful ID.
-    _id_attribute_blacklist = set()
+    # Each inheritator of this generator is uniquely ID'd, if ID'd.
+    _id_iterator = itertools.count()
 
     @classmethod
     def new(cls, children=None, set_id=False, **attributes):
@@ -92,22 +92,7 @@ class SVGElement(lxml.etree.ElementBase):
 
     def make_id(self):
         '''Generate a string for use as an "id" attribute.'''
-        return '_'.join(filter(lambda x: x,
-                               (self._make_id_base(), self._make_id_salient(),
-                                self._make_id_recursive())))
-
-    def _make_id_recursive(self):
-        return '_'.join(map(lambda x: x.make_id(), self))
-
-    def _make_id_salient(self):
-        blist = {'id'}.union(set(self._id_attribute_blacklist))
-        values = tuple((v for k, v in self.attrib.items() if k not in blist))
-        if values:
-            return '-'.join(map(str, values)).replace(' ', '')
-        return ''
-
-    def _make_id_base(self):
-        return self._id_prefix or self.tag
+        return ''.join((self._id_prefix, str(next(self._id_iterator))))
 
 
 class IDElement(SVGElement):
