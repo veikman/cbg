@@ -23,6 +23,8 @@ Copyright 2014-2015 Viktor Eikman
 '''
 
 import itertools
+import logging
+import collections
 
 import lxml.etree
 
@@ -48,6 +50,80 @@ class SVGElement(lxml.etree.ElementBase):
     # Each inheritator of this generator is uniquely ID'd, if ID'd.
     _id_iterator = itertools.count()
 
+    # Certain keyword arguments will automatically be intercepted
+    # for inclusion in the "style" SVG attribute, instead of being
+    # used as attributes on their own.
+    #                    CSS font properties:
+    _keywords_style = {'font',
+                       'font-family',
+                       'font-size',
+                       'font-size-adjust',
+                       'font-stretch',
+                       'font-style',
+                       'font-variant',
+                       'font-weight',
+                       # CSS text properties:
+                       'direction',
+                       'letter-spacing',
+                       'text-decoration',
+                       'unicode-bidi',
+                       'word-spacing',
+                       # Miscellaneous CSS properties:
+                       'clip',
+                       'color',
+                       'cursor',
+                       'display',
+                       'overflow',
+                       'visibility',
+                       # Non-CSS compositing properties
+                       'clip-path',
+                       'clip-rule',
+                       'mask',
+                       'opacity',
+                       # Non-CSS filter effect properties:
+                       'enable-background',
+                       'filter',
+                       'flood-color',
+                       'flood-opacity',
+                       'lighting-color',
+                       # Non-CSS gradient properties:
+                       'stop-color',
+                       'stop-opacity',
+                       # Non-CSS interactivity properties:
+                       'pointer-events',
+                       # Non-CSS color and painting properties:
+                       'color-interpolation',
+                       'color-interpolation-filters',
+                       'color-profile',
+                       'color-rendering',
+                       'fill',
+                       'fill-opacity',
+                       'fill-rule',
+                       'image-rendering',
+                       'marker',
+                       'marker-end',
+                       'marker-mid',
+                       'marker-start',
+                       'shape-rendering',
+                       'stroke',
+                       'stroke-dasharray',
+                       'stroke-dashoffset',
+                       'stroke-linecap',
+                       'stroke-linejoin',
+                       'stroke-miterlimit',
+                       'stroke-opacity',
+                       'stroke-width',
+                       'text-rendering',
+                       # Non-CSS text properties:
+                       'alignment-baseline',
+                       'baseline-shift',
+                       'dominant-baseline',
+                       'glyph-orientation-horizontal',
+                       'glyph-orientation-vertical',
+                       'kerning',
+                       'text-anchor',
+                       'writing-mode'}
+
     @classmethod
     def new(cls, children=None, set_id=False, **attributes):
         '''Create a new instance, configured with convenient logic.
@@ -64,16 +140,75 @@ class SVGElement(lxml.etree.ElementBase):
             s = 'SVG element class {} has no tag name.'
             raise NotImplementedError(s.format(cls.__name__))
 
+        # lxml can only handle bytes and unicode.
+        attributes = {str(k): str(v) for k, v in attributes.items()}
+
+        # Suck some arguments into a style attribute.
+        cls._filter_arguments('style', cls._keywords_style, attributes)
+
+        # Instantiate.
         instance = cls(**attributes)
 
+        # Note child elements.
         if children:
             for c in children:
                 instance.append(c)
 
+        # Generate ID based on finalized instance, in case that matters.
         if set_id:
             instance.set_id()
 
         return instance
+
+    @classmethod
+    def _python_to_svg_key(cls, string_key):
+        return string_key.replace('_', '-')
+
+    @classmethod
+    def _svg_to_python_key(cls, string_key):
+        return string_key.replace('-', '_')
+
+    @classmethod
+    def _filter_arguments(cls, attribute_name, roster, subject):
+        '''Alter subject dictionary.
+
+        This is intended primarily to place arguments to new() in the
+        SVG "style" attribute without forcing the user to specify that,
+        by means of inference from a list of legal style keywords.
+
+        '''
+
+        # Fetch unfiltered, explicit content of attribute:
+        caught = subject.pop(attribute_name, {})
+
+        # Transform, temporarily, into a dictionary with SVG keys intact:
+        if caught:
+            caught = (p.split(':') for p in caught.split(';') if p)
+            caught = {k: v for k, v in caught}
+        elif caught == '':
+            caught = {}
+        elif not isinstance(caught, collections.abc.Mapping):
+            s = 'Discarding unexpected value for {}: {}'
+            logging.warning(s.format(attribute_name, repr(caught)))
+            caught = {}
+
+        # Add new properties from subject dictionary:
+        for python_key in tuple(subject):
+            svg_key = cls._python_to_svg_key(python_key)
+            if svg_key in roster and svg_key not in caught:
+                value = subject.pop(python_key)
+                caught[svg_key] = value
+
+        # Destroy dummy values:
+        for svg_key, value in tuple(caught.items()):
+            if value == '':
+                # A dummy inserted to pre-empt filtering by this method.
+                caught.pop(svg_key)
+
+        # Reinsert the attribute, as a string, into the subject dictionary:
+        if caught:
+            s = ';'.join(':'.join(map(str, p)) for p in sorted(caught.items()))
+            subject[attribute_name] = s
 
     def set_id(self):
         '''Generate and set a representative SVG "id" attribute.
@@ -83,7 +218,8 @@ class SVGElement(lxml.etree.ElementBase):
 
         Intended primarily for use with the "defs" section of an SVG
         document, and further intended to avoid unnecessary duplicates
-        in that section.
+        in that section by means of possible content-specific overrides
+        in subclasses.
 
         '''
         id_ = self.make_id()

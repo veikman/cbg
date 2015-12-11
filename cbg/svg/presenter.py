@@ -235,10 +235,11 @@ class SVGPresenter():
 
         # Encode the line.
         self.wardrobe.mode_accent(stroke=True)
-        attrib = self._attrdict_line(a, b, boxheight)
-        if not lines:
-            attrib['stroke-dasharray'] = '3, 3'
-        lxml.etree.SubElement(self.xml, 'line', attrib)
+        line = shapes.Line.new(a, b,
+                               stroke=self.wardrobe.color_stroke(),
+                               stroke_width=boxheight,
+                               stroke_dasharray='' if lines else '3, 3')
+        self.xml.append(line)
 
         if lines:
             # Add text to the box.
@@ -271,16 +272,18 @@ class SVGPresenter():
         The origin argument must refer to something with the EdgePoint
         API.
 
+        This method is deprecated for being too specific, but has no
+        clear replacement as yet. Use "insert_circle" to get just a
+        circle.
+
         '''
         radius = self.wardrobe.size.base
-        point = self.origin + origin.displaced(radius)
-
-        attrib = self._attrdict_circle(point, radius)
-        lxml.etree.SubElement(self.xml, 'circle', attrib)
+        self.insert_circle(origin.displaced(radius), radius)
 
         self.wardrobe.emphasis(bold=True, stroke=True)
         self.wardrobe.mode_contrast(fill=True)
-        point = point + (0, self.wardrobe.size.base / 4)
+        point = self.origin + origin.displaced(radius)
+        point += (0, self.wardrobe.size.base / 4)
         attrib = self._attrdict_text(point)
         lxml.etree.SubElement(self.xml, 'text', attrib).text = content
 
@@ -302,6 +305,15 @@ class SVGPresenter():
 
         pathfinder.closepath()
         self.put_path(pathfinder)
+
+    def insert_circle(self, offset, radius):
+        '''Put a circle anywhere.'''
+        position = self.origin + offset
+        extra = self.cursor.transform.attrdict(position=position)
+        shape = shapes.Circle.new(position, radius,
+                                  wardrobe=self.wardrobe, **extra)
+        self.xml.append(shape)
+        return shape
 
     def insert_rect(self, offset, size, rounding=None):
         '''Put a rectangle anywhere.'''
@@ -343,20 +355,6 @@ class SVGPresenter():
         ret['x'], ret['y'] = misc.rounded(position)
         ret.update(self.cursor.transform.attrdict(position=position))
         ret['{{{}}}space'.format(NAMESPACE_XML)] = 'preserve'
-        return ret
-
-    def _attrdict_line(self, a, b, width):
-        if width is None:
-            width = self.inner
-        ret = self.wardrobe.dict_svg_stroke(width)
-        ret['x1'], ret['y1'] = misc.rounded(a)
-        ret['x2'], ret['y2'] = misc.rounded(b)
-        return ret
-
-    def _attrdict_circle(self, position, radius):
-        ret = self.wardrobe.dict_svg_fill()
-        ret['cx'], ret['cy'] = misc.rounded(position)
-        ret['r'] = misc.rounded(radius)
         return ret
 
 

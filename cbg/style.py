@@ -136,12 +136,14 @@ class Wardrobe():
         else:
             return {keys.STYLE: 'fill:{};'.format(color)}
 
+    def color_stroke(self):
+        return self.colors[self._color_mode_stroke][0]
+
     def dict_svg_stroke(self, thickness=None):
-        color = self.colors[self._color_mode_stroke][0]
         if thickness is None:
             thickness = self.size.stroke
         s = 'stroke:{};stroke-width:{}'
-        return {keys.STYLE: s.format(color, thickness)}
+        return {keys.STYLE: s.format(self.color_stroke(), thickness)}
 
     def color_iterable(self):
         '''Return the raw list of color strings for the current color mode.

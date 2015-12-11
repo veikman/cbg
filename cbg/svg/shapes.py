@@ -26,20 +26,82 @@ from cbg import misc
 from cbg.svg import svg
 
 
-class Rect(svg.SVGElement):
+class _Shape(svg.SVGElement):
+    '''Basic shape superclass.'''
+
+    @classmethod
+    def new(cls, wardrobe=None, **kwargs):
+        if wardrobe is not None:
+            kwargs.update(wardrobe.dict_svg_fill())
+
+        return super().new(**kwargs)
+
+
+class Rect(_Shape):
     '''A rectangle.'''
 
     TAG = 'rect'
 
     @classmethod
-    def new(cls, position, size, rounding=None, wardrobe=None, **kwargs):
+    def new(cls, position, size, rounding=None, **kwargs):
         kwargs['x'], kwargs['y'] = misc.rounded(position)
         kwargs['width'], kwargs['height'] = misc.rounded(size)
 
         if rounding is not None:
             kwargs['rx'] = kwargs['ry'] = misc.rounded(rounding)
 
-        if wardrobe is not None:
-            kwargs.update(wardrobe.dict_svg_fill())
-
         return super().new(**kwargs)
+
+
+class Circle(_Shape):
+    '''A circle.'''
+
+    TAG = 'circle'
+
+    @classmethod
+    def new(cls, centerpoint, radius, **kwargs):
+        kwargs['cx'], kwargs['cy'] = misc.rounded(centerpoint)
+        kwargs['r'] = misc.rounded(radius)
+        return super().new(**kwargs)
+
+
+class Ellipse(_Shape):
+    '''An ellipse.'''
+
+    TAG = 'ellipse'
+
+    @classmethod
+    def new(cls, centerpoint, radii, **kwargs):
+        kwargs['cx'], kwargs['cy'] = misc.rounded(centerpoint)
+        kwargs['rx'], kwargs['ry'] = misc.rounded(radii)
+        return super().new(**kwargs)
+
+
+class Line(_Shape):
+    '''A single-segment line.'''
+
+    TAG = 'line'
+
+    @classmethod
+    def new(cls, point1, point2, **kwargs):
+        kwargs['x1'], kwargs['y1'] = misc.rounded(point1)
+        kwargs['x2'], kwargs['y2'] = misc.rounded(point2)
+        return super().new(**kwargs)
+
+
+class PolyLine(_Shape):
+    '''A multi-segment line.'''
+
+    TAG = 'polyline'
+
+    @classmethod
+    def new(cls, points, **kwargs):
+        coordinate_pairs = (','.join(misc.rounded(p) for p in points))
+        kwargs['points'] = ' '.join(coordinate_pairs)
+        return super().new(**kwargs)
+
+
+class Polygon(PolyLine):
+    '''A polygon.'''
+
+    TAG = 'polygon'
