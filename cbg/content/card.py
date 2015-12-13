@@ -26,13 +26,14 @@ import itertools
 import logging
 
 from cbg.content import elements
+from cbg.content import field
 
 
-class Card(elements.DerivedFromSpec, elements.Presentable, list):
-    '''The text content of a single playing card, as a list of fields.
+class Card(elements.DerivedFromSpec, field.Layout):
+    '''The content of a unique playing card, as a "master" of sorts.
 
     Content is tracked by field type, and each field type has its own
-    class, listed in the "field_classes" class attribute.
+    class, listed in the "plan" class attribute.
 
     If there is a field corresponding to a title, it should generally
     be populated first and use the "key_title" attribute of the card
@@ -43,82 +44,36 @@ class Card(elements.DerivedFromSpec, elements.Presentable, list):
 
     '''
 
-    field_classes = tuple()
-
     _untitled_base = 'untitled card'
     _untitled_iterator = itertools.count(start=1)
 
-    def __init__(self, **raw_data):
-        '''Receive a hash map of raw data from content specifications.'''
-        super().__init__()
+    def layout(self):
+        '''Put data from incoming raws into empty fields.'''
         self._generated_title = self._generate_title()
 
-        for f in self.field_classes:
-            # Instantiate as-yet empty fields for content.
-            self.append(f())
-
-        self._process(**raw_data)
-
-    def _process(self, **raw_data):
-        '''All the work from terse specs to complete contents.'''
         try:
-            self._populate_fields(raw_data)
+            super().layout()
         except:
-            s = 'An error occurred while processing "{}".'
+            s = 'An error occurred while processing the "{}" card.'
             logging.error(s.format(self))
             raise
 
-    def _populate_fields(self, raw_data):
-        '''Put data from incoming raws into empty fields.
+        if self.specification:
+            for key, value in self.specification.items():
+                s = 'Unrecognized data key "{}" not consumed: "{}".'
+                logging.error(s.format(key, value))
 
-        The order is honored because field methods may be overridden
-        to perform arbitrary operations on earlier fields, e.g. the
-        presence of an "Action" field may automatically add an "Action"
-        tag to a "Tags" field, which needs to have been initialized
-        with other content first.
+            s = 'Specification for the "{}" card was not consumed.'
+            raise self.SpecificationError(s.format(self.title))
 
-        '''
-        for field in self:
-            try:
-                value = raw_data.pop(field.key)
-            except KeyError:
-                field.not_in_spec()
-            else:
-                self._populate_single_field(field, value)
-
-        for key, value in raw_data.items():
-            s = 'Unrecognized field in data spec for card "{}": "{}: {}".'
-            s = s.format(self.title, key, value)
-            raise self.SpecificationError(s)
-
-    def _populate_single_field(self, field, value):
-        '''Populate a field with its data.
-
-        Meant to be overridden. One example of a situation where that
-        would be appropriate is where tags are used and the mere presence
-        of data for a specific field (other than the tag field) implies
-        a certain tag. That would be the case if, for example, the card
-        can be used to perform an action if there is a populated action
-        field, and that implies that the card should also be decorated
-        with an action tag. The tagging would need to be handled at this
-        level, because the action description field would not have direct
-        access to the card or its tags.
-
-        '''
-        field.in_spec(value)
+    def not_in_spec(self):
+        s = 'Specification of {} inadequate for basic layout.'
+        raise self.SpecificationError(s.format(self))
 
     @property
     def sorting_keys(self):
         '''Used by decks to put themselves in order.'''
         return self.title
-
-    def field_by_key(self, key, required=True):
-        for f in self:
-            if f.key == key:
-                return f
-        if required:
-            s = 'No such field on card {}: {}.'
-            raise KeyError(s.format(self.title, key))
 
     @property
     def title(self):
@@ -129,7 +84,7 @@ class Card(elements.DerivedFromSpec, elements.Presentable, list):
 
         '''
         try:
-            return self.field_by_key(self.key_title)[0].string
+            return str(self.child_by_key_required(self.key_title).content)
         except:
             return self._generated_title
 
@@ -145,8 +100,11 @@ class Card(elements.DerivedFromSpec, elements.Presentable, list):
         on this attribute.
 
         '''
-        return self.field_by_key(self.key_tags)
+        return self.child_by_key_required(self.key_tags)
+
+    def __str__(self):
+        return self.title
 
     def __hash__(self):
-        '''Treat as if immutable, because decks are counters.'''
+        '''Treat as if immutable, because decks are counters (hash tables).'''
         return hash(id(self))

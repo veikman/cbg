@@ -7,5 +7,6 @@ from . import elements
 from . import field
 from . import tag
 from . import grid
+from . import text
 
-__all__ = [card, deck, elements, field, grid, tag]
+__all__ = [card, deck, elements, field, grid, tag, text]

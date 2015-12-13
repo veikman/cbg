@@ -11,6 +11,21 @@ class Basics(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             svg.SVGElement.new()
 
+    def test_element_within_element(self):
+
+        class A(svg.SVGElement):
+            TAG = 'a'
+
+            class B(svg.SVGElement):
+                TAG = 'b'
+
+            @classmethod
+            def new(cls):
+                return super().new(children=(cls.B.new(),))
+
+        a = A.new()
+        self.assertIsNotNone(a.find('b'))
+
 
 class ArgumentFiltering(unittest.TestCase):
 

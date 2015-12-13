@@ -30,22 +30,36 @@ import cbg.misc as misc
 
 
 class Array(numpy.ndarray):
-    '''A point, area, grid system etc.
+    '''A point, area, table etc.
 
     This is just the bare minimum needed to subclass a numpy array for
     use as a convenient superclass elsewhere.
 
     '''
 
-    def __new__(cls, data, *args, **kwargs):
-        obj = numpy.asarray(numpy.array(data)).view(cls)
-        return obj
+    def __new__(cls, *args, value=None, dtype=None, **kwargs):
+        # Note: For a zero-dimensional array to be resizable, it must own
+        # its data, which is guaranteeed here by the copy() step.
+        return numpy.array(value, dtype=dtype).view(cls).copy()
 
     def __array_finalize__(self, obj):
+        '''Numpy convention.'''
         pass
 
 
-class Rectangle(Array):
+class ObjectArray(Array):
+    '''A container of arbitrary data.'''
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(cls, *args, dtype=numpy.object, **kwargs)
+
+
+class InstantArray(Array):
+    '''An array that takes its first positional arguments as its value.'''
+    def __new__(cls, value, *args, **kwargs):
+        return super().__new__(cls, *args, value=value, **kwargs)
+
+
+class Rectangle(InstantArray):
     '''A 2D surface area. In fact, a rectangle.
 
     In this class, the main array provided by the superclass represents the
@@ -53,7 +67,7 @@ class Rectangle(Array):
 
     '''
 
-    class EdgePoint(Array):
+    class EdgePoint(InstantArray):
         '''A point on the edge of an area.
 
         Instances can calculate displacement from their own position
@@ -76,7 +90,7 @@ class Rectangle(Array):
             return self.__class__(self + [f * o for f, o in pairs],
                                   self.displacement_factors)
 
-    def __init__(self, footprint):
+    def __init__(self, _):
         self.upper_left = self.EdgePoint(self * (0, 0), (1, 1))
         self.upper_right = self.EdgePoint(self * (1, 0), (-1, 1))
         self.lower_left = self.EdgePoint(self * (0, 1), (1, -1))
@@ -123,3 +137,45 @@ class Rectangle(Array):
                 yield new(y), new(x)
 
             x_first = not x_first
+
+
+class ListOfPoints(list):
+    '''A simple list of 2D coordinates.
+
+    Used for simple calculations upon raw specifications.
+
+    '''
+
+    @property
+    def shape(self):
+        '''Presented in numpy order.'''
+        return self.diff_y + 1, self.diff_x + 1
+
+    @property
+    def offset(self):
+        '''The offset of the list's upper left corner against (0, 0).'''
+        return -numpy.array((self.min_x, self.min_y))
+
+    @property
+    def min_x(self):
+        return min(map(lambda p: p[0], self))
+
+    @property
+    def max_x(self):
+        return max(map(lambda p: p[0], self))
+
+    @property
+    def diff_x(self):
+        return self.max_x - self.min_x
+
+    @property
+    def min_y(self):
+        return min(map(lambda p: p[1], self))
+
+    @property
+    def max_y(self):
+        return max(map(lambda p: p[1], self))
+
+    @property
+    def diff_y(self):
+        return self.max_y - self.min_y

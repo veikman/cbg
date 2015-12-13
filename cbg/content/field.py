@@ -22,108 +22,232 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
+import logging
+import itertools
+
+import numpy
+
 import cbg.misc
 import cbg.keys
+import cbg.geometry
 from cbg.content import elements
 
 
-class Field(elements.Presentable):
-    '''Superclass for any human-readable content that varies between cards.
+class BaseField(elements.Presentable):
+    '''Abstract base class for organizing content on a type of card.
 
-    Abstract base class.
-
-    Used to create classes to represent ideal field types, which are
-    then instantiated by card types and (normally) populated from
-    specification files.
+    Used to create classes to represent layouting contrivances as well as
+    as direct containers.
 
     '''
 
     # A key is needed if contents are to be found in specs.
     key = None
 
-    def in_spec(self, content):
-        '''Behaviour when the field's key is found in the raw specification.'''
+    # A plan is needed if contents are to be contained by the field.
+    # A plan is an iterable of field-like classes.
+    plan = ()
+
+    def __init__(self, specification=None, parent=None):
+        self.specification = specification
+        self.parent = parent
+
+        self.layout()
+
+    def layout(self):
+        raise NotImplementedError
+
+    def _search_single(self, hit_function, down=True):
+        '''Recursive search for a single field in the tree structure.'''
+
+        if hit_function(self):
+            return self
+
+        if down:
+            for child in self:
+                try:
+                    ret = child._search_single(hit_function, down=down)
+                    if ret is not None:
+                        return ret
+                except AttributeError:
+                    '''Non-field content.'''
+                    pass
+        else:
+            return self.parent._search_single(hit_function, down=down)
+
+    def child_by_key(self, key):
+        return self._search_single(lambda c: c.key == key)
+
+    def child_by_key_required(self, key):
+        ret = self.child_by_key(key)
+
+        if ret is None:
+            s = 'No such field {}: {}.'
+            raise KeyError(s.format(self, key))
+
+        return ret
+
+
+class Atom(BaseField):
+    '''A minimal usable field.
+
+    This class is typically employed for details of a card layout,
+    like an individual tile on a map, as seen in the grid module.
+
+    '''
+
+    def layout(self):
+        '''A text specification is not expected, and will be ignored.'''
+        pass
+
+    def _search_single(self, hit_function, **kwargs):
+        '''Recursive search for a single field in the tree structure.'''
+
+        if hit_function(self):
+            return self
+
+
+class BaseSpecifiableField(BaseField):
+    '''A field that reacts to text specifications for each card type.
+
+    '''
+
+    def layout(self):
+        if self.specification is None:
+            self.not_in_spec()
+        else:
+            self.in_spec()
+
+    def in_spec(self):
+        '''Behaviour when the field's key is found in the raw specification.
+
+        Generally, a detail of the specification is interpreted here,
+        which may include implications for other parts of the card.
+
+        For example, the mere presence of data for a specific field can
+        imply a tag, which needs to be put in a different field. That
+        would be the case if, for example, the card can be used to
+        perform an action if there is a populated action field, and
+        that implies that the card should also be decorated with an
+        action tag. The tagging can be handled here, for the action
+        field, by searching for the tag field via self.parent.
+        Alternately, it can be handled at a higher level, such as the
+        card level.
+
+        '''
         raise NotImplementedError
 
     def not_in_spec(self):
         '''Behaviour when the raw specification does not mention the field.'''
-        raise NotImplementedError
-
-
-class ContainerField(Field):
-    '''A field that forces its content into a subordinate type of field.
-
-    Abstract base class.
-
-    '''
-
-    # A class encapsulates and processes contents at a lower level.
-    content_class = None
-
-    def not_in_spec(self):
-        '''Absence of data leaves an empty yet perhaps visible container.'''
         pass
 
+    def instantiate_content_class(self, cls, specification):
+        '''Encapsulate subordinate content in a child object.
 
-class ContainerList(ContainerField, list):
+        The child content class is not assumed to conform to the field
+        API, unless it descends from BaseField. This is a convenience
+        designed to allow arbitrary child classes.
+
+        '''
+        if issubclass(cls, BaseField):
+            return cls(specification=specification, parent=self)
+        else:
+            return cls(specification)
+
+
+class ArbitraryContainer(BaseSpecifiableField):
+    '''A field for content that isn't easily subdivided.'''
+
+    def layout(self, *args, **kwargs):
+        self.content = None
+        super().layout(*args, **kwargs)
+
+    def in_spec(self):
+        try:
+            content_class = self.plan[0]
+        except IndexError:
+            content_class = None
+
+        if content_class:
+            self.content = self.instantiate_content_class(content_class,
+                                                          self.specification)
+        else:
+            self.content = self.specification
+
+    def __iter__(self):
+        '''Act like a list of one object. For searchability.'''
+        return iter((self.content,))
+
+
+class _NaturalContainer(BaseSpecifiableField):
+    '''For crude API compatibility with ArbitraryContainer.'''
+
+    @property
+    def content(self):
+        '''Defined for forwards API compatibility with ArbitraryContainer.'''
+        return self
+
+
+class List(BaseField, list):
     '''A one-dimensional array of subordinate fields.'''
 
-    def in_spec(self, content):
-        '''Encapsulate each piece of content.'''
-        for raw in cbg.misc.make_listlike(content):
-            self.append(self.content_class(content=raw))
+
+class Array(BaseField, cbg.geometry.ObjectArray):
+    '''A multi-dimensional array of subordinate fields.'''
+
+    def __iter__(self):
+        try:
+            return numpy.nditer(self,
+                                flags=['refs_ok'], op_flags=['readwrite'])
+        except ValueError:
+            # Raised by numpy if the array is empty.
+            return iter(())
+
+    def __bool__(self):
+        return self.specification is not None
 
 
-class Paragraph(Field):
-    '''A level below a content field in organization, for text-based fields.
+class Layout(BaseSpecifiableField, List):
+    '''A field structured according to a plan independent of content.'''
 
-    This is subclassed in the "tag" module to represent a tag in a
-    horizontal list.
+    def in_spec(self):
+        '''All the work from terse specs to complete contents.'''
+        for cls in self.plan:
 
-    '''
+            if cls.key:
+                try:
+                    child_spec = self.specification.pop(cls.key, None)
+                except AttributeError:
+                    s = ('Cannot pop by key from {} specification "{}" '
+                         'for field class {}.')
+                    logging.error(s.format(type(self.specification).__name__,
+                                           self.specification,
+                                           type(self).__name__))
+                    raise
+            else:
+                child_spec = self.specification
 
-    def __init__(self, content=None):
-        '''Initialize.
+            try:
+                self.append(cls(specification=child_spec, parent=self))
+            except:
+                s = 'An error occurred while laying out {}.'
+                logging.error(s.format(cls))
+                raise
 
-        Paragraphs are not normally instantiated, except by text fields.
-        At that point, the content is already known, so not_in_spec() is
-        not defined, and the content can be passed directly to this
-        method for convenience.
+
+class AutoField(_NaturalContainer, List):
+
+    def in_spec(self):
+        '''Create one child for each discrete element of the specification.
+
+        If there are multiple classes available in the plan, cycle over
+        them.
 
         '''
-        super().__init__()
-        self.raw = ''
-        self.string = ''
+        if not self.plan:
+            s = '{} has no class for encapsulation of its content.'
+            raise NotImplementedError(s.format(self.__class__))
 
-        if content is not None:
-            self.in_spec(content)
-
-    def in_spec(self, content):
-        assert content is not None
-        self.raw = content  # Useful for comparisons between specs.
-        self.string = self.format_text(self.raw)
-
-    def not_in_spec(self, _):
-        raise ValueError('Calling for a default paragraph is an error.')
-
-    @classmethod
-    def format_text(cls, content):
-        '''Convert from e.g. integer in YAML specs to string.
-
-        This method is intended to be overridden for the integration
-        of a string templating system.
-
-        '''
-        return str(content)
-
-    def __str__(self):
-        return self.string
-
-
-class TextField(ContainerList):
-    '''A field of zero or more paragraphs.'''
-
-    content_class = Paragraph
-
-    def __str__(self):
-        return '\n  '.join(map(str, self))
+        for cls, element in zip(itertools.cycle(self.plan),
+                                cbg.misc.make_listlike(self.specification)):
+            self.append(self.instantiate_content_class(cls, element))

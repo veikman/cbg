@@ -1,5 +1,25 @@
 # -*- coding: utf-8 -*-
-'''Terrain diagrams etc. on a grid layout.
+'''Terrain diagrams on a grid layout.
+
+The classes in this module are designed to work from specifications
+shaped like a 1-deep string-indexed unordered hash map of iterables of
+two-dimensional coordinate pairs. In YAML it looks like this:
+
+<keyword for grid field>:
+  <keyword for content type A>:
+     - <coordinate pair>
+     - ...
+  <keyword for content type B>:
+     - ...
+
+All named coordinate pairs exist on the map, but CBG will determine
+an offset so that a full set of pairs like (10, 10), (10, 11) are
+treated just like (0, 0), (0, 1), leaving no dead space on either
+axis.
+
+Each content type has its own field class, with its own presenter(s),
+which will determine whether to fill each cell, draw a border around
+multiple cells, connect cells with an arrow etc.
 
 ------
 
@@ -22,120 +42,99 @@ Copyright 2014-2015 Viktor Eikman
 
 '''
 
+# TODO: Automatically populate maps from all (composited) cell subclasses.
+
+# TODO: Permit a more graphical type of instruction, with single-character
+# keys, for each layer of a map.
+
+
 import numpy
 
 from cbg.content import field
+from cbg import geometry
 
 
-class Map(field.ContainerField):
-    '''A two-dimensional grid forming a map.
+class Map(field.BaseSpecifiableField, field.Array):
+    '''A two-dimensional grid forming a map of e.g. RPG scene terrain.'''
 
-    The map is stored as a numpy array. It would have been convenient for
-    this class to inherit from cbg.geometry.Array, except that numpy
-    arrays cannot be cleared, nor easily reshaped from a zero-dimensional
-    shape, which is an appropriate (naturally false) default state
-    awaiting specifications. Specifically, in a prototype of this class
-    based on cbg.geometry.Array, attempting a self.resize from in_spec()
-    triggered an exception:
+    class ListOfIndirectPoints(geometry.ListOfPoints):
+        '''A means of interpreting raw specifications.'''
 
-        "cannot resize this array: it does not own its data".
+        def __init__(self, specification):
+            '''Capture all coordinate pairs that are to appear on the map.'''
+            super().__init__()
+            for content_type, coordinate_pairs in specification.items():
+                self.extend(coordinate_pairs)
 
-    Owing to the zero-dimensional default, this could not be circumvented
-    merely by setting data. The exception seems spurious. The prototype
-    was abandoned on the assumption that the exception was an artifact
-    of subclassing numpy.ndarray by the standard method.
-
-    '''
-
-    class Cell(field.Field):
-
-        def in_spec(self, content):
-            pass
+    class Cell(field.Atom):
+        '''A piece of the map.'''
 
         def __repr__(self):
-            '''For use in the printing of maps to console (debugging).'''
+            '''For use in the printing of maps to console (debugging).
+
+            It would be possible to reverse such operations, reading a
+            layer of a map from text-based art.
+
+            '''
             return '?'
 
     class Empty(Cell):
+        '''Clear space on the map.'''
+
         def __repr__(self):
             return '.'
 
-    def __init__(self):
-        super().__init__()
-        self.array = numpy.array(())
+    # By default, the map will only be large enough to show its
+    # specified contents, with no surrounding wall or lip.
+    cell_padding = 0
 
-    def in_spec(self, shape):
+    def in_spec(self):
         '''Stub out the shape with undefined values.
 
-        numpy's "empty" is not used to represent empty cells. Subclasses
-        must add content, including empty cell objects.
+        Subclasses must add content, including empty cell objects.
 
         '''
-        self.array = numpy.empty(shape, dtype=numpy.object)
+        points = self.ListOfIndirectPoints(self.specification)
 
-    @property
-    def shape(self):
-        '''Workaround for composition of array.'''
-        return self.array.shape
+        # Pad out appropriately.
+        shape = tuple(map(lambda x: x + 2 * self.cell_padding, points.shape))
+        self.resize(shape, refcheck=False)
 
-    def __iter__(self):
-        try:
-            return numpy.nditer(self.array, flags=['refs_ok'])
-        except ValueError:
-            # Raised by numpy if the array is empty, i.e. no map in spec.
-            return iter(())
-
-    def __bool__(self):
-        return bool(len(self.array))
+        # Growth pads with zeros.
+        self.fill(None)
 
     def __str__(self):
-        return '{} map: {}'.format(self.shape, self.array)
+        return '{} map: {}'.format(self.shape, super().__str__())
 
 
 class DefaultEmptyMap(Map):
-    '''Empty map cells filling the whole area.'''
-    def in_spec(self, shape):
-        super().in_spec(shape)
+    '''A map of nothing but empty space, by default.'''
+
+    def in_spec(self):
+        super().in_spec()
 
         # Rather than using fill(), we instantiate individual emptinesses.
-        for position in numpy.nditer(self.array,
-                                     flags=['refs_ok'],
-                                     op_flags=['writeonly']):
+        for position in self:
             position[...] = self.Empty()
 
 
 class AreaOfEffect(DefaultEmptyMap):
-    '''A diagram illustrating the shape and size of an affected area.
+    '''A diagram illustrating the shape and size of an affected area.'''
 
-    The diagram is padded with a layer of empty cells, ideally cropped
-    by a frame, fading over a gradient, or otherwise de-emphasized in
-    rendering.
-
-    '''
+    # The diagram is padded with a layer of empty cells, ideally cropped
+    # by a frame, fading over a gradient, or otherwise de-emphasized in
+    # rendering.
+    cell_padding = 1
 
     class Affected(Map.Cell):
         def __repr__(self):
             return 'A'
 
-    def in_spec(self, points):
-        '''Take an iterable of Cartesian coordinate tuples: (x, y).
+    def in_spec(self):
+        super().in_spec()
 
-        Determine the effective origin of the coordinate system in the
-        input and adjust for that when adding padding. The first padded
-        cell will be (0, 0), and the first possibly affected cell will
-        be (1, 1).
-
-        '''
-        min_x = min(map(lambda p: p[0], points))
-        min_y = min(map(lambda p: p[1], points))
-        max_x = max(map(lambda p: p[0], points))
-        max_y = max(map(lambda p: p[1], points))
-
-        # The bounding box is the difference on each axis + 1.
-        # To that we add 2: 1 unit of padding on every side.
-        shape = (max_y - min_y + 3, max_x - min_x + 3)
-        super().in_spec(shape)
-
+        points = self.ListOfIndirectPoints(self.specification)
+        offset = points.offset
         for point in points:
-            x, y = (numpy.array(point) - (min_x, min_y)) + (1, 1)
-            self.array[y][x] = self.Affected()
+            x, y = numpy.array(point) + offset + self.cell_padding
+            self[y][x] = self.Affected()

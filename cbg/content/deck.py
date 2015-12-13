@@ -44,13 +44,13 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
             self.metadata = raw.get(self.key_metadata, {})
 
             try:
-                cards = raw[self.key_data]
+                card_specs = raw[self.key_data]
             except KeyError:
-                cards = {k: v for k, v in raw.items()
-                         if k != self.key_metadata}
+                card_specs = {k: v for k, v in raw.items()
+                              if k != self.key_metadata}
 
         elif isinstance(raw, collections.abc.Sequence):
-            cards = raw
+            card_specs = raw
 
         else:
             s = 'Cannot interpret {} as a deck specification.'
@@ -60,20 +60,20 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
         if self.title is None:
             self.title = self._generate_title()
 
-        self._populate(card_cls, cards)
+        self._populate(card_cls, card_specs)
 
-    def _populate(self, card_cls, cards):
+    def _populate(self, card_cls, card_specs):
         '''Infer the rough data structure of the specification.'''
-        if not cards:
+        if not card_specs:
             raise self.SpecificationError('No cards.')
 
-        if isinstance(cards, collections.abc.Mapping):
-            for key, value in cards.items():
-                self._add_card_type(card_cls, cards[key],
+        if isinstance(card_specs, collections.abc.Mapping):
+            for key, value in card_specs.items():
+                self._add_card_type(card_cls, value,
                                     backup_title=str(key))
         else:
             # List-like, continuing from the type check in __init__().
-            for item in cards:
+            for item in card_specs:
                 self._add_card_type(card_cls, item)
 
     def _add_card_type(self, card_cls, card_spec, backup_title=None):
@@ -102,7 +102,7 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
             # Not found in the specifications.
             copies = 1
 
-        self[card_cls(**card_spec)] = copies
+        self[card_cls(specification=card_spec)] = copies
 
     def singles_sorted(self):
         keys = {f.sorting_keys: f for f in self}

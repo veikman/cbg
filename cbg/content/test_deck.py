@@ -39,32 +39,34 @@ def suppress(logging_level):
     return decorator
 
 
-class TitleField(cbg.content.field.TextField):
+class TitleField(cbg.content.text.TextField):
     key = keys.TITLE
     presenter_class_front = cbg.svg.presenter.FieldBase
 
 
 class CardSubclass(card.Card):
-    field_classes = (TitleField,)
+    plan = (TitleField,)
 
 
 class Card(unittest.TestCase):
-    def test_empty(self):
-        card.Card()
+    @suppress(logging.ERROR)
+    def test_no_spec(self):
+        with self.assertRaises(CardSubclass.SpecificationError):
+            card.Card()
 
     @suppress(logging.ERROR)
-    def test_data_empty(self):
+    def test_empty_spec(self):
         with self.assertRaises(CardSubclass.SpecificationError):
-            card.Card(**{keys.DATA: {}})
+            card.Card({keys.DATA: {}})
 
     def test_creation(self):
         o = unittest.mock.patch.object
-        with o(card.Card, '_process') as m:
-            card.Card(**DUMMY)
-            m.assert_called_once_with(**DUMMY)
+        with o(card.Card, 'layout') as m:
+            card.Card(DUMMY)
+            m.assert_called_once_with()
 
     def test_sorting(self):
-        c = CardSubclass(**{keys.TITLE: 't1'})
+        c = CardSubclass({keys.TITLE: 't1'})
         self.assertEqual(c.sorting_keys, 't1')
 
 

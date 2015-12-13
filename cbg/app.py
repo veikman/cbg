@@ -31,7 +31,7 @@ import re
 import subprocess
 
 import cbg.content.deck as deck
-import cbg.svg.page as page
+import cbg.svg.image as image
 
 
 HELP_SELECT = ('Syntax for card selection: [AMOUNT:][tag=]REGEX',
@@ -173,19 +173,19 @@ class Application():
     def _all_layouts(self):
         '''Lay out pages in SVG. Save the resulting page queue.'''
 
-        page_queue = page.Queue(self.name_short)
+        page_queue = image.PageQueue(self.name_short)
 
         if self.args.neighbours:
             # Just one round of layouts. Include everything.
-            sides = (('', True, True, True),)
+            sides = ((True, True, True, True, True),)
         else:
             # Two rounds of layouts.
-            sides = (('front', not self.args.no_fronts, True, False),
-                     ('back', self.args.backs, False, True))
-        for side, requested, include_front, include_back in sides:
-            if not requested:
-                continue
-            self.layout(page_queue, side, include_front, include_back)
+            sides = ((not self.args.no_fronts, True, False, True, False),
+                     (self.args.backs, False, True, False, True))
+        for requested, obverse, reverse, insert_front, insert_back in sides:
+            if requested:
+                self.layout(page_queue, obverse, reverse,
+                            insert_front, insert_back)
 
         if self.args.duplex:
             # Alternate between front sheets and back sheets.
@@ -250,11 +250,14 @@ class Application():
 
             yield self.limit_selection(deck_)
 
-    def layout(self, page_queue, side_name, front, back):
+    def layout(self, page_queue, obverse_on_page, reverse_on_page,
+               insert_front, insert_back):
         '''Add to a queue of layed-out pages, full of cards.'''
 
         def new_page():
-            page_queue.append(page.Page(left_to_right=front, side=side_name))
+            page_queue.append(image.Image.new(left_to_right=insert_front,
+                                              obverse=obverse_on_page,
+                                              reverse=reverse_on_page))
 
         def insert(cardcopy, presenter_class):
             if not presenter_class:
@@ -275,9 +278,9 @@ class Application():
         for listing in self.specs.values():
             # The requisite number of copies of each card.
             for cardcopy in listing:
-                if front:
+                if insert_front:
                     insert(cardcopy, cardcopy.presenter_class_front)
-                if back:
+                if insert_back:
                     insert(cardcopy, cardcopy.presenter_class_back)
 
         return page_queue

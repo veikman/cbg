@@ -36,8 +36,8 @@ class SVGElement(lxml.etree.ElementBase):
     production is supported. CBG cannot load XML files, and cannot
     create instances of this class from XML.
 
-    The TAG attribute, whose name is mandated by lxml, must be populated
-    by a subclass.
+    The TAG attribute, whose name is mandated by lxml, must be set by
+    each subclass.
 
     '''
 
@@ -47,7 +47,7 @@ class SVGElement(lxml.etree.ElementBase):
     # _id_prefix is included when generating an ID attribute.
     _id_prefix = ''
 
-    # Each inheritator of this generator is uniquely ID'd, if ID'd.
+    # Each inheritor of this generator is uniquely ID'd, if ID'd.
     _id_iterator = itertools.count()
 
     # Certain keyword arguments will automatically be intercepted

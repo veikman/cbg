@@ -6,8 +6,8 @@ from . import misc
 from . import transform
 from . import cursor
 from . import presenter
-from . import page
+from . import image
 from . import grid
 from . import filter
 
-__all__ = [filter, misc, transform, cursor, grid, page, presenter, svg]
+__all__ = [filter, misc, transform, cursor, grid, image, presenter, svg]

@@ -31,17 +31,39 @@ Copyright 2014-2015 Viktor Eikman
 '''
 
 import cbg.keys as keys
-import cbg.misc
 from cbg.content import field
 
 
-class Tag(field.Paragraph):
-    '''A word or phrase used to provide categorical information.
+class BaseTag():
+    '''A word or phrase used to categorize cards.
 
-    Unlike regular paragraphs, a tag needs to be defined with a key on
-    initialization, as a means of controlling for misspelled tags in specs,
-    and to enable some special features of tags in the AdvancedTag
-    subclass.
+    Creatable directly from text specifications, as it is little more
+    than a string polymorphable to its more advanced inheritors.
+
+    '''
+
+    def __init__(self, key):
+        self.key = key
+
+    def __str__(self):
+        return self.key
+
+    def __lt__(self, other):
+        '''Tags sort alphabetically.'''
+        return str(self) < str(other)
+
+    @classmethod
+    def get(cls, key):
+        '''No retrieval. Instantiate a new object.'''
+        return cls(key)
+
+
+class RegisteredTag(BaseTag):
+    '''A tag checked against a roster, created before reading specs.
+
+    Unlike regular paragraphs, and basic tags, a tag of this class needs
+    to be defined with a key before reading specs. This is a means of
+    controlling for misspelled tags in the specs.
 
     '''
 
@@ -53,79 +75,31 @@ class Tag(field.Paragraph):
 
     def __init__(self, key):
         '''Register a unique tag.'''
-        super().__init__(content=key)
-
-        # Automatically keep track of which tags have been created for
-        # a game, as a roster for specification recognition.
         if key in self.registry:
             raise self.TaggingError('"{}" defined more than once.'.format(key))
+
+        super().__init__(key)
+
         self.registry[key] = self
 
     @classmethod
     def get(cls, key):
-        '''Act like a dictionary. Check raw content against tag roster.'''
+        '''Act like a dictionary. Check raw content against roster.'''
         try:
             return cls.registry[key]
         except KeyError as e:
             s = 'Tag markup "{}" does not appear in roster.'
             raise cls.TaggingError(s.format(key)) from e
 
-    def __lt__(self, other):
-        '''Tags sort alphabetically.'''
-        return str(self) < str(other)
 
+class AdvancedTag(RegisteredTag):
+    '''An advanced type of tag with extra features.
 
-class TagField(field.ContainerList):
-    '''A content field that uses a set of tags as its sole paragraph.
-
-    A tag field is intended to programmatically expandable as part of
-    the logic of a CBG application.
-
-    '''
-
-    key = keys.TAGS
-    content_class = Tag  # Expected to support Tag's "get()" API.
-
-    def in_spec(self, content):
-        '''Take an iterable of strings. Convert to tag objects.
-
-        May be called several times.
-
-        '''
-        for key in cbg.misc.make_listlike(content):
-            self.append(self.content_class.get(key))
-        self.sort()
-
-    def not_in_spec(self):
-        '''An empty tag list is still useful.'''
-        self.in_spec(())
-
-    def as_set(self, selector_function=lambda t: True):
-        '''A subset of tags in the field.'''
-        return set(filter(selector_function, self))
-
-    def as_string(self, selection):
-        '''Meant to be overridden, as for CBG's advanced tags.
-
-        This method is intended to be called directly when different
-        kinds of tags are to be printed on different parts of a card,
-        hence the "selection" argument.
-
-        '''
-        return ', '.join(map(str, selection)).capitalize()
-
-    def __str__(self):
-        return self.as_string(self)
-
-
-class AdvancedTag(Tag):
-    '''An alternate tag with some oft-useful features.
-
-    These tags are either syntactic or semantic, with respect to their
-    rule systems, and can be hierarchically related, weighted for
+    An advanced tag is either syntactic or semantic, with respect to
+    a rule system, and can be hierarchically related, weighted for
     sorting, and explicitly named.
 
-    These tags can also be non-printing, in which case they should
+    This class of tag can also be non-printing. Such tags should
     be ignored by graphical presenters.
 
     '''
@@ -135,7 +109,7 @@ class AdvancedTag(Tag):
                  subordinate_to=None, sorting_value=0):
         super().__init__(key)
 
-        self.full_name = full_name if full_name is not None else self.string
+        self.full_name = self.key if full_name is None else full_name
 
         # A syntactic tag in a game would commonly be something like
         # "reaction" or "phase 1". A non-syntactic tag is treated as
@@ -165,17 +139,60 @@ class AdvancedTag(Tag):
         return not self.syntactic
 
 
-class AdvancedTagField(TagField):
-    '''Support for AdvancedTag features.'''
+class BaseTagField(field.AutoField):
+    '''A set of tags.'''
 
-    content_class = AdvancedTag
+    key = keys.TAGS
+    plan = [BaseTag]
 
-    def in_spec(self, raw):
-        super().in_spec(raw)
-        for t in self.subordinates:
-            if t.subordinate_to not in self:
+    def in_spec(self):
+        '''An override to check against the tag roster.'''
+        for element in self.specification:
+            self.append(self.plan[0].get(element))
+
+    def as_set(self, selector_function=lambda t: True):
+        '''A subset of tags in the field.'''
+        return set(filter(selector_function, self))
+
+    def as_string(self, selection):
+        '''Meant to be overridden, as for CBG's advanced tags.
+
+        This method is intended to be called directly when different
+        kinds of tags are to be printed on different parts of a card,
+        hence the "selection" argument.
+
+        '''
+        return ', '.join(map(str, selection)).capitalize()
+
+    def append(self, item):
+        '''An override to ensure sorting.
+
+        A tag field is intended to be expandable after absorbing its
+        raw specification, as part of the logic of a CBG application.
+
+        '''
+        super().append(item)
+        self.sort()
+
+    def __str__(self):
+        return self.as_string(self)
+
+
+class RegisteredTagField(BaseTagField):
+
+    plan = [RegisteredTag]
+
+
+class AdvancedTagField(RegisteredTagField):
+
+    plan = [AdvancedTag]
+
+    def in_spec(self):
+        super().in_spec()
+        for t in self:
+            if t.subordinate_to and t.subordinate_to not in self:
                 s = 'Tag "{}" lacks master "{}".'.format(t, t.subordinate_to)
-                raise self.content_class.TaggingError(s)
+                raise self.plan[0].TaggingError(s)
 
     @property
     def syntactic(self):

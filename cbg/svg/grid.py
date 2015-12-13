@@ -68,7 +68,7 @@ class SquareGrid(presenter.SVGPresenter):
         # grid alone, it is grouped here.
         grid_as_group = lxml.etree.Element('g')
 
-        for coordinates, cell in numpy.ndenumerate(self.content_source.array):
+        for coordinates, cell in numpy.ndenumerate(self.content_source):
             origin = coordinates * cell.presenter_class_front.size
             origin += tuple(self.origin)
             presenter = cell.presenter_class_front(cell, origin=origin,

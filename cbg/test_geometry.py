@@ -18,7 +18,7 @@ class ArrayConstructor(unittest.TestCase):
             return a
 
     def compare(self, ref):
-        a = cbg.geometry.Array(ref)
+        a = cbg.geometry.InstantArray(ref)
         self.assertTupleEqual(self.totuple(a), ref)
         return a
 
@@ -44,20 +44,6 @@ class ArrayConstructor(unittest.TestCase):
     def test_2x2_none(self):
         a = self.compare(((None, None), (None, None)))
         self.assertEqual(a.dtype, numpy.dtype('object'))
-
-
-class Flexibility(unittest.TestCase):
-    def test_resize(self):
-        '''This is not really intended to succeed.
-
-        This unit test remains here in the hope of one day failing,
-        at which time it may be possible to reimplement Map as a subclass
-        of Array. Refer to the Map documentation.
-
-        '''
-        a = cbg.geometry.Array(((1,)))
-        with self.assertRaises(ValueError):
-            a.resize((2, 2))
 
 
 class Rectangle(unittest.TestCase):
@@ -98,3 +84,31 @@ class Rectangle(unittest.TestCase):
                                ((1, 3), (0, 2),),)):
             for p, ref in zip(p, ref):
                 self.compare(p, ref)
+
+
+class ListOfPoints(unittest.TestCase):
+    def test_simple(self):
+        lst = cbg.geometry.ListOfPoints([(1, -1), (2, 1)])
+
+        self.assertEqual(lst.max_x, 2)
+        self.assertEqual(lst.min_x, 1)
+        self.assertEqual(lst.diff_x, 1)
+        self.assertEqual(lst.max_y, 1)
+        self.assertEqual(lst.min_y, -1)
+        self.assertEqual(lst.diff_y, 2)
+
+        self.assertEqual(tuple(lst.offset), (-1, 1))
+        self.assertEqual(lst.shape, (3, 2))
+
+    def test_triangle(self):
+        lst = cbg.geometry.ListOfPoints([(0, 0), (2, 4), (4, 0)])
+
+        self.assertEqual(lst.max_x, 4)
+        self.assertEqual(lst.min_x, 0)
+        self.assertEqual(lst.diff_x, 4)
+        self.assertEqual(lst.max_y, 4)
+        self.assertEqual(lst.min_y, 0)
+        self.assertEqual(lst.diff_y, 4)
+
+        self.assertEqual(tuple(lst.offset), (0, 0))
+        self.assertEqual(lst.shape, (5, 5))
