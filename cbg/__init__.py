@@ -18,18 +18,18 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
 from . import keys
+from . import cursor
 from . import misc
 from . import geometry
-from . import style
 from . import sample
 from . import svg
 from . import content
 from . import size
 from . import app
 
-__all__ = [app, content, geometry, keys, misc, sample, size, svg, style]
+__all__ = [app, content, cursor, geometry, keys, misc, sample, size, svg]

@@ -79,19 +79,12 @@ class AdvancedTag(unittest.TestCase):
 class Safeguards(unittest.TestCase):
     def setUp(self):
         tag.AdvancedTag.registry.clear()
-        self.t1 = tag.AdvancedTag('a', syntactic=True)
+        self.t1 = tag.AdvancedTag('a')
 
-    def test_collision(self):
+    def test_name_collision(self):
         with self.assertRaises(tag.AdvancedTag.TaggingError):
             tag.AdvancedTag('a')
 
-    def test_disparate_hierarchy(self):
-        with self.assertRaises(tag.AdvancedTag.TaggingError):
-            tag.AdvancedTag('b', subordinate_to=self.t1)
-
     def test_open_hierarchy(self):
-        t2 = tag.AdvancedTag('b', syntactic=True, subordinate_to=self.t1)
+        t2 = tag.AdvancedTag('b', subordinate_to=self.t1)
         self.assertIs(t2.subordinate_to, self.t1)
-
-        with self.assertRaises(tag.AdvancedTag.TaggingError):
-            tag.AdvancedTagField(('b'),)

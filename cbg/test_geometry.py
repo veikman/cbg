@@ -76,6 +76,11 @@ class Rectangle(unittest.TestCase):
         for p, ref in zip(ps, ((0, 0), (4, 0), (4, 3), (0, 3),)):
             self.compare(p, ref)
 
+        ps = a.corners(offset=1)
+        self.assertEqual(len(ps), 4)
+        for p, ref in zip(ps, ((1, 1), (3, 1), (3, 2), (1, 2),)):
+            self.compare(p, ref)
+
         ps = tuple(a.corner_offsets((1, 0)))
         self.assertEqual(len(ps), 4)
         for p, ref in zip(ps, (((0, 1), (1, 0),),
@@ -98,7 +103,8 @@ class ListOfPoints(unittest.TestCase):
         self.assertEqual(lst.diff_y, 2)
 
         self.assertEqual(tuple(lst.offset), (-1, 1))
-        self.assertEqual(lst.shape, (3, 2))
+        self.assertEqual(tuple(lst.shape), (3, 2))
+        self.assertEqual(tuple(lst.mean), (1.5, 0))
 
     def test_triangle(self):
         lst = cbg.geometry.ListOfPoints([(0, 0), (2, 4), (4, 0)])
@@ -111,4 +117,5 @@ class ListOfPoints(unittest.TestCase):
         self.assertEqual(lst.diff_y, 4)
 
         self.assertEqual(tuple(lst.offset), (0, 0))
-        self.assertEqual(lst.shape, (5, 5))
+        self.assertEqual(tuple(lst.shape), (5, 5))
+        self.assertEqual(tuple(lst.mean), (2, 4 / 3))

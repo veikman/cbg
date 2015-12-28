@@ -27,6 +27,7 @@ FILL = 'fill'
 
 FONT_BOLD = 'bold'
 FONT_ITALIC = 'italic'
+FONT_SMALL_CAPS = 'small_caps'
 
 ALIGN_START = 'start'
 ALIGN_MIDDLE = 'middle'

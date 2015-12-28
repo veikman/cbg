@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
@@ -38,6 +38,15 @@ class Presentable():
 
     presenter_class_front = None
     presenter_class_back = None
+
+    def __init__(self):
+        # Depending on content, it may be desirable to adjust the size
+        # an element will take up when presented. As size is normally a
+        # property of each presenter class, an override needs to happen
+        # at the individual level. It also needs to be known in
+        # layouting, i.e. before instantiation of presenters, in order
+        # to place neighbouring elements correctly.
+        self.presenter_size_override = None
 
 
 class DerivedFromSpec():

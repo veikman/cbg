@@ -5,15 +5,24 @@ import unittest
 
 import lxml.etree
 
+import cbg.svg.card as card
 import cbg.svg.image as image
-import cbg.svg.presenter as presenter
+import cbg.sample.wardrobe
 
 
 class DefsElement(unittest.TestCase):
+
+    class Presenter(card.CardPresenter):
+        Wardrobe = cbg.sample.wardrobe.MiniEuroMain
+
+        def recurse(self):
+            pass
+
     def setUp(self):
         self.image = image.Image.new()
-        self.presenter = presenter.CardBase(None, origin=(0, 0),
-                                            defs=self.image.defs)
+        self.presenter = self.Presenter.new(unittest.mock.MagicMock(),
+                                            origin=(0, 0),
+                                            parent=self.image)
 
     def test_default_empty(self):
         self.assertEqual(len(self.image.defs), 0)

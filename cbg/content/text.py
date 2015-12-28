@@ -22,10 +22,11 @@ Copyright 2015 Viktor Eikman
 
 '''
 
+import cbg.misc
 from cbg.content import field
 
 
-class Paragraph(field.Atom):
+class Paragraph(field.Atom, cbg.misc.Formattable):
     '''A level below a content field in organization, for text-based fields.
 
     Paragraphs are normally created by a TextField, rather than the
@@ -35,16 +36,6 @@ class Paragraph(field.Atom):
 
     def layout(self):
         self.content = self.format_text(self.specification)
-
-    @classmethod
-    def format_text(cls, content):
-        '''Convert from e.g. integer in YAML specs to string.
-
-        This method is intended to be overridden for the integration
-        of a string templating system.
-
-        '''
-        return str(content)
 
     def __str__(self):
         return self.content

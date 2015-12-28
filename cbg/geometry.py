@@ -20,7 +20,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
@@ -96,16 +96,23 @@ class Rectangle(InstantArray):
         self.lower_left = self.EdgePoint(self * (0, 1), (1, -1))
         self.lower_right = self.EdgePoint(self * (1, 1), (-1, -1))
 
-    def corners(self):
+    def corners(self, offset=0):
         '''In clockwise order starting nearest to the geometric origin.
 
         1  2
 
         4  3
 
+        If a non-zero offset is supplied, return the corners dislocated
+        by it, towards the center of the rectangle, but symmetrically on
+        both axes.
+
         '''
-        return (self.upper_left, self.upper_right,
-                self.lower_right, self.lower_left)
+        if offset:
+            return tuple((p[0] for p in self.corner_offsets((offset, offset))))
+        else:
+            return (self.upper_left, self.upper_right,
+                    self.lower_right, self.lower_left)
 
     def corner_offsets(self, offsets, x_first=False):
         '''A generator of 4 pairs of points, each at symmetric offsets.
@@ -138,6 +145,14 @@ class Rectangle(InstantArray):
 
             x_first = not x_first
 
+    def tilted(self):
+        '''A copy flipped 90°.
+
+        Used to make landscape versions of (normally) portrait card sizes.
+
+        '''
+        return self.__class__(numpy.flipud(self))
+
 
 class ListOfPoints(list):
     '''A simple list of 2D coordinates.
@@ -148,8 +163,12 @@ class ListOfPoints(list):
 
     @property
     def shape(self):
-        '''Presented in numpy order.'''
-        return self.diff_y + 1, self.diff_x + 1
+        '''Presented as a numpy array for ease of multiplication.
+
+        Presented in numpy order for ease of comparison with numpy arrays.
+
+        '''
+        return numpy.array((self.diff_y + 1, self.diff_x + 1))
 
     @property
     def offset(self):
@@ -179,3 +198,8 @@ class ListOfPoints(list):
     @property
     def diff_y(self):
         return self.max_y - self.min_y
+
+    @property
+    def mean(self):
+        '''Useful for finding an approximate center.'''
+        return sum(map(numpy.array, self)) / len(self)

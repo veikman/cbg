@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''A module for arranging SVG graphics as an image.
+'''A module for arranging SVG graphics at the top level, as an image.
 
 For printed cards, an image constitutes a page. This module provides a
 page queue for that use case.
@@ -21,7 +21,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
@@ -32,13 +32,14 @@ import os
 
 import lxml
 
+import cbg.misc
 from cbg import geometry
 from cbg.svg import presenter
 from cbg.svg import svg
-import cbg.sample.size as size
+from cbg.sample import size
 
 
-class Image(svg.SVGElement):
+class Image(cbg.misc.SearchableTree, svg.SVGElement):
     '''An SVG image.
 
     Implementation detail: Unlike basic SVGElements, an image holds a
@@ -61,9 +62,14 @@ class Image(svg.SVGElement):
         TAG = 'defs'
 
     @classmethod
-    def new(cls, dimensions=size.A4, left_to_right=True,
+    def new(cls, dimensions=size.A4, padding=(16, 9), left_to_right=True,
             obverse=None, reverse=None, **kwargs):
         '''Create an image.
+
+        The "padding" flag measures out a margin between the limits of
+        the image and its actual contents. In the case of a page, it
+        functions as a margin necessary to make the contents printable
+        on a regular desktop printer. It is formulated as (x, y).
 
         The "left_to_right" flag denotes the direction from which cards
         are added. This is normally used to get front (obverse) and
@@ -92,12 +98,10 @@ class Image(svg.SVGElement):
 
         obj = super().new(children=(cls.Definitions.new(),), **kwargs)
 
-        obj.full_size = dimensions
+        obj.dimensions = geometry.Rectangle(dimensions)
+        obj.padding = cbg.misc.Compass(*padding[::-1])
 
-        try:
-            obj.printable = obj.full_size - 2 * obj.full_size.margins
-        except AttributeError:
-            obj.printable = obj.full_size
+        obj.printable = obj.dimensions - obj.padding.reduction
 
         obj.obverse = obverse
         obj.reverse = reverse
@@ -151,7 +155,7 @@ class Image(svg.SVGElement):
             return False
 
         x = row_x if self.left_to_right else space_x - row_x - footprint[0]
-        return self.full_size.margins + (x, occupied_y)
+        return (self.padding.left + x, self.padding.top + occupied_y)
 
     def add(self, footprint, xml):
         if not self.can_fit(footprint):

@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
@@ -39,7 +39,7 @@ HELP_SELECT = ('Syntax for card selection: [AMOUNT:][tag=]REGEX',
                'REGEX with "tag=" refers to one card tag, else titles.')
 
 LICENSE = ('This card graphics application was made with the CBG library.',
-           'CBG Copyright 2014-2015 Viktor Eikman',
+           'CBG Copyright 2014-2016 Viktor Eikman',
            'CBG is free software, and you are welcome to redistribute it',
            'under the terms of the GNU General Public License.')
 
@@ -235,7 +235,7 @@ class Application():
         if self.spec_format == SPEC_FORMAT_YAML:
             import yaml
 
-        for filename_base, cardtype in self.decks.items():
+        for filename_base, card_cls in self.decks.items():
             filepath = '{}/{}.{}'.format(self.folder_specs, filename_base,
                                          self.spec_format)
 
@@ -243,7 +243,7 @@ class Application():
                 if self.spec_format == SPEC_FORMAT_YAML:
                     raw = yaml.load(f)
 
-            deck_ = deck.Deck(cardtype, raw, title=filename_base)
+            deck_ = deck.Deck(card_cls, raw, title=filename_base)
 
             s = '{} cards in "{}" deck.'
             logging.debug(s.format(len(deck_), deck_.title))
@@ -269,10 +269,9 @@ class Application():
                 new_page()
 
             origin = page_queue[-1].free_spot(presenter_class.size)
-            presenter = presenter_class(cardcopy, origin=origin,
-                                        defs=page_queue[-1].defs)
-
-            page_queue[-1].add(presenter_class.size, presenter.xml)
+            presenter = presenter_class.new(cardcopy, origin=origin,
+                                            parent=page_queue[-1])
+            page_queue[-1].add(presenter_class.size, presenter)
 
         new_page()
         for listing in self.specs.values():
@@ -318,7 +317,7 @@ class Application():
         return specs
 
     def rasterize(self):
-        '''Go from vector graphics to bitmaps with Inkscape.'''
+        '''Go from vector graphics to bitmaps using Inkscape.'''
         try:
             os.mkdir(self.folder_printing)
         except FileExistsError:

@@ -18,26 +18,25 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
-import cbg.svg.transform
 
-
-class GraphicsElementInsertionCursor():
+class _GraphicsElementInsertionCursor():
     '''A direction from which to insert new elements on a card.'''
 
     flip_line_order = False
 
     def __init__(self, parent):
+        '''Take a presenter with access to size information.'''
         self.parent = parent
         self.displacement = 0
 
-        # In order to support such use cases as writing one half of a
-        # card's text upside down, cursors carry transformers, which are
-        # accessed by presenters.
-        self.transform = cbg.svg.transform.Transformer()
+    @property
+    def offset(self):
+        '''A (vertical) offset for use with presenter origin coordinates.'''
+        raise NotImplementedError
 
     def jump(self, position):
         self.displacement = position
@@ -51,11 +50,16 @@ class GraphicsElementInsertionCursor():
         raise NotImplementedError
 
 
-class FromTop(GraphicsElementInsertionCursor):
+class FromTop(_GraphicsElementInsertionCursor):
+
+    @property
+    def offset(self):
+        return self.displacement
+
     def slide(self, height):
         '''Move first, then suggest insertion at new location.'''
         self.displacement += height
-        return self.displacement
+        return self.offset
 
     def text(self, size, envelope):
         relevant = self.slide(size)
@@ -63,14 +67,18 @@ class FromTop(GraphicsElementInsertionCursor):
         return relevant
 
 
-class FromBottom(GraphicsElementInsertionCursor):
+class FromBottom(_GraphicsElementInsertionCursor):
     flip_line_order = True
+
+    @property
+    def offset(self):
+        return self.parent.size[1] - self.displacement
 
     def slide(self, height):
         '''Insert first, then move (up). State position from top of card.'''
-        ret = self.displacement
+        original_offset = self.offset
         self.displacement += height
-        return self.parent.size[1] - ret
+        return original_offset
 
     def text(self, size, envelope):
         self.slide(envelope - size)

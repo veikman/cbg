@@ -18,12 +18,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
-import cbg.style
+from cbg.svg import wardrobe
 
-ARIAL = cbg.style.FontFamily('Arial', 0.6)
-BITSTREAM_CHARTER = cbg.style.FontFamily('Bitstream Charter', 0.52)
-BITSTREAM_VERA_SANS = cbg.style.FontFamily('Bitstream Vera Sans', 0.6)
+ARIAL = wardrobe.Font('Arial', width_to_height=0.6)
+BITSTREAM_CHARTER = wardrobe.Font('Bitstream Charter', width_to_height=0.52)
+BITSTREAM_VERA_SANS = wardrobe.Font('Bitstream Vera Sans', width_to_height=0.6)

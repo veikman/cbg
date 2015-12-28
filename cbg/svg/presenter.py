@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
@@ -28,13 +28,19 @@ import logging
 import lxml.etree
 import numpy
 
-import cbg.misc as misc
-import cbg.sample as sample
-import cbg.svg.cursor
+import cbg.misc
+import cbg.geometry
+from cbg.svg import svg
 from cbg.svg import path
 from cbg.svg import shapes
+from cbg.svg import misc
 
 
+# Card-level presenter side tokens.
+RECURSION_FRONT = 'presenter_class_front'
+RECURSION_BACK = 'presenter_class_back'
+
+# XML namespace names.
 NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
 NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
 
@@ -44,7 +50,7 @@ NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
 # xlink = 'http://www.w3.org/1999/xlink'
 
 
-class SVGPresenter():
+class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
     '''An abstract base class with a set of methods for producing SVG code.
 
     Different subclasses of this are defined for cards and each of their
@@ -55,97 +61,148 @@ class SVGPresenter():
 
     '''
 
-    wardrobe = sample.wardrobe.WARDROBE
+    TAG = 'g'
 
-    # Canvas size is typically set for cards only.
+    # A recursion attribute name is only set for card presenters.
+    recursion_attribute_name = None
+
+    # Size refers to a reserved footprint, rather than a canvas.
+    # Must be set for cards.
     size = None
 
-    def __init__(self, content_source, parent_presenter=None, defs=None,
-                 origin=None):
-        '''Produce SVG XML based on some content: the content_source object.
+    # Cursors handle the spacing of contents along an axis.
+    # Like size, a cursor class must be set for cards.
+    # Like size, a cursor is inherited by subordinate presenters, by default.
+    cursor_class = None
+
+    @classmethod
+    def new(cls, field, parent=None, origin=None, size=None, cursor=None,
+            **kwargs):
+        '''Produce SVG XML based on a field object.
 
         In this base class, just create an empty SVG 'g' (group) element.
         Each card and field is represented by one of these elements.
         An XML tree structure is built within the group by appending the
         presenter's tree to higher-level presenters, and ultimately to
-        a page.
+        a page or other image.
 
-        Because we're working towards a complete page, coordinates must
-        be absolute. If the presenter has a canvas of its own, the
-        absolute coordinates of the origin of that canvas must be provided.
+        Because we're working towards a complete page, coordinates used
+        to instantiate shapes, text etc. must be absolute and should
+        normally be limited to an assigned area. This is aided by the
+        algorithmic finding of an origin and size for a metaphorical
+        local canvas. That canvas is not enforced by means of any masked
+        SVG object or the like. It is only a convenience, and artistic
+        license is applicable. In truth, any presenter may draw anywhere.
 
         '''
-        self.content_source = content_source
-        self.parent_presenter = parent_presenter
+        inst = super().new(**kwargs)
+        inst.field = field
+        inst.parent = parent
+        inst.origin = inst._determine_origin(origin)
+        inst.size = inst._determine_size(size)
+        inst.cursor = inst._determine_cursor(cursor)
 
-        # The defs element is maintained at the second highest level of the
-        # SVG document, by the page. Refer to the Page class.
-        #
-        # When a chain of presenters is instantiated in the application
-        # model, the top presenter receives a reference to the defs element,
-        # which is manipulated through the "define" method of the presenter.
-        self._defs = defs
+        # A wardrobe class must be composited onto each implementation.
+        inst.wardrobe = cls.Wardrobe()
 
-        if self.size is not None and origin is None:
-            raise ValueError('A presenter with a size must have an origin.')
-        self._origin = numpy.array(origin) if origin is not None else origin
+        # Populate the instance's xml object by drawing stuff.
+        inst.present()
 
-        self._reset_cursors()
-        self.wardrobe.reset()
+        return inst
 
-        self.xml = lxml.etree.Element('g')
+    def _determine_origin(self, origin):
+        '''Return the absolute coordinates of the upper left corner of self.
 
-    def _reset_cursors(self):
-        self._cursor = None  # Pointer to currently active cursor.
-        self._from_top = None
-        self._from_bottom = None
+        The coordinates of the upper left corner are referred to as
+        self.origin, but are relative to (0, 0), the geometric origin of
+        the SVG image itself. (0, 0) is used as a fallback here.
 
-        if self is self.canvas_owner:
-            self._from_top = cbg.svg.cursor.FromTop(self)
-            self._from_bottom = cbg.svg.cursor.FromBottom(self)
+        Arithmetically, self.origin should be treated as the origin of a
+        coordinate system local to the presenter. It is an aid to placing
+        elements on each card in proper relation to the image as a whole.
 
-        self.top_down()
+        '''
+        if origin is None:
+            try:
+                origin = self.parent.origin
+            except AttributeError:
+                logging.debug('Defaulting to origin (0, 0).')
+                origin = (0, 0)
+        assert origin is not None
+        return numpy.array(origin)  # For ease of multiplication etc.
 
-    def _presenter_with(self, attribute_name, select_value):
-        '''A method used to make methods for upward presenter tree search.'''
+    def _determine_size(self, size):
+        '''Return the (x, y) extent of self's canvas starting from self.origin.
 
-        value = getattr(self, attribute_name)
-        if value is None:
-            if self.parent_presenter is None:
-                # Recurse upwards.
-                s = 'No presenter with attribute "{}".'
-                raise AttributeError(s.format(attribute_name))
-            else:
-                return self.parent_presenter._presenter_with(attribute_name,
-                                                             select_value)
-        elif select_value:
-            return value
-        else:
-            return self
+        The size has many possible sources. In order of decreasing priority:
 
-    @property
-    def cursor(self):
-        return self._presenter_with('_cursor', True)
+        * A keyword argument to new(), which is the argument to this method.
+        * A field property, set in reaction to field (non-)population.
+        * A presenter class property, which should always be set for cards.
+        * The parent presenter's size.
 
-    @property
-    def cursor_from_top(self):
-        return self._presenter_with('_from_top', True)
+        An exception is raised if none of these sources can be used.
 
-    @property
-    def cursor_from_bottom(self):
-        return self._presenter_with('_from_bottom', True)
+        '''
+        if size is None:
+            size = self.field.presenter_size_override
+        if size is None:
+            size = self.__class__.size
+        if size is None:
+            try:
+                size = self.parent.size
+            except AttributeError:
+                s = 'No size defined for presenting {}.'
+                logging.error(s.format(self.field))
+                raise
+        assert size is not None
+        return numpy.array(size)  # For ease of multiplication etc.
 
-    @property
-    def canvas_owner(self):
-        return self._presenter_with('size', False)
+    def _determine_cursor(self, cursor):
+        '''Return a cursor object, or None.'''
+        if cursor is None:
+            if self.cursor_class:
+                cursor = self.cursor_class(self)
+        if cursor is None:
+            try:
+                cursor = self.parent.cursor
+            except AttributeError:
+                logging.debug('No cursor.')
+        return cursor
 
-    @property
-    def defs(self):
-        return self._presenter_with('_defs', True)
+    def present(self):
+        '''To be overridden for all the SVG drawing work.'''
+        self.recurse()
 
-    @property
-    def origin(self):
-        return self._presenter_with('_origin', True)
+    def recurse(self, **kwargs):
+        '''Present all inner fields at once.'''
+        return tuple(self._iterate_through_recursion(**kwargs))
+
+    def _iterate_through_recursion(self, **kwargs):
+        '''Iterate through the presentation of inner fields.
+
+        This could have been handled by each field, except that
+        presenters are allowed to control the order of events, as a
+        means of controlling occlusion in the resulting image.
+
+        '''
+        card = self._search_single(lambda p: p.recursion_attribute_name)
+
+        if card is None:
+            s = 'Unable to recursively present subordinate fields.'
+            raise Exception(s)
+
+        yield from self._represent_child_fields(card.recursion_attribute_name,
+                                                **kwargs)
+
+    def _represent_child_fields(self, attribute_name, **kwargs):
+        '''Generate presenters for content fields within the parent field.'''
+        for field in self.field:
+            presenter_class = getattr(field, attribute_name)
+            if presenter_class:
+                presenter = presenter_class.new(field, parent=self, **kwargs)
+                self.append(presenter)
+                yield (field, presenter)
 
     def define(self, xml):
         '''Take an etree oject. Add as a definition if new, else ignore.'''
@@ -153,7 +210,7 @@ class SVGPresenter():
         id_ = xml.get('id')
 
         if id_ is None:
-            s = 'Definitions must have a set "id" attribute. "{}" does not.'
+            s = 'Definitions must have an "id" attribute set. "{}" does not.'
             raise ValueError(s.format(lxml.etree.tostring(xml)))
 
         # Avoid duplicates by ID, to keep the SVG clean.
@@ -168,135 +225,71 @@ class SVGPresenter():
 
         self.defs.append(xml)
 
-    def top_down(self):
-        self.canvas_owner._cursor = self.cursor_from_top
+    @property
+    def defs(self):
+        '''Access registered definitions.
 
-    def bottom_up(self):
-        self.canvas_owner._cursor = self.cursor_from_bottom
+        The defs element is maintained at the second highest level of the
+        SVG object hierarchy.
+
+        '''
+        return self.image.defs
+
+    @property
+    def image(self):
+        '''Access the top-level SVG element: the image.'''
+        image = self._search_single(lambda p: p.tag == 'svg')
+
+        if image is None:
+            s = 'Cannot trace SVG lineage from {} to its parent image.'
+            raise Exception(s)
+        elif image.getparent() is not None:  # lxml method.
+            s = 'Failed to identify parent image: Candidate has a parent.'
+            raise Exception(s)
+
+        return image
+
+    def _presenter_with(self, attribute_name, select_value):
+        '''A method used to make methods for upward presenter tree search.'''
+
+        value = getattr(self, attribute_name)
+        if value is None:
+            if self.parent is None:
+                # Recurse upwards.
+                s = 'No presenter with attribute "{}".'
+                raise AttributeError(s.format(attribute_name))
+            else:
+                return self.parent._presenter_with(attribute_name,
+                                                   select_value)
+        elif select_value:
+            return value
+
+        else:
+            return self
 
     def line_feed(self):
-        return self.cursor.text(self.wardrobe.size.base,
-                                self.wardrobe.size.line_height)
+        '''Advance the cursor by the height of a line of text.'''
+        return self.cursor.text(self.wardrobe.font_size,
+                                self.wardrobe.line_height)
 
-    def insert_text(self, content, ii='', si='', lead='', follow=True):
-        '''Insert text that can be multiple lines.
+    def insert_frame(self, thickness=None, outside_radius=None):
+        '''Create a border inside the edges of the canvas.'''
 
-        If inserted from the bottom of the card, the text block will
-        still read from top to bottom.
+        if thickness is None:
+            thickness = self.wardrobe.mode.thickness
+        if outside_radius is None:
+            outside_radius = 2 * thickness
 
-        "ii" is initial indent and "si" is subsequent indent.
-        "lead" is a word or phrase that starts the paragraph, following
-        the initial indent. Leads are highlighted.
+        middle = thickness / 2
+        area = cbg.geometry.Rectangle(self.size)
+        pathfinder = path.Path.Pathfinder()
 
-        '''
-        size = self.canvas_owner.size
-        card_width = size[0]
-        margin = size.outer + 2 * size.inner
-        horizontal = self.wardrobe.horizontal(card_width, margin)
+        corners = area.corners(offset=middle)
+        joins = area.corner_offsets((outside_radius - middle, middle))
 
-        lines = self._wrap(lead + content, ii, si)
-        first = [True] + [False] * (len(lines) - 1)
-        if self.cursor.flip_line_order:
-            lines = lines[::-1]
-            first = first[::-1]
-
-        for line, top in zip(lines, first):
-            position = self.origin + (horizontal, self.line_feed())
-            attrib = self._attrdict_text(position)
-            element = lxml.etree.SubElement(self.xml, 'text', attrib)
-
-            if top and lead:
-                self._formatted_paragraph_lead(element, line, ii, lead)
-            else:
-                element.text = line
-
-        if follow:
-            self.cursor.slide(self.wardrobe.size.after_paragraph)
-
-    def insert_tagbox(self, content):
-        lines = self._wrap(content, '', '')
-
-        # If there is text to be drawn, draw a thick line under it,
-        # which we can call a box. Otherwise, make the line thin, not
-        # so box-like.
-        textheight = len(lines) * self.wardrobe.size.line_height
-        extra = self.canvas_owner.size.inner
-        boxheight = textheight + extra
-
-        # Determine the vertical level of the line. Don't "move" yet.
-        self.cursor.slide(boxheight / 2)
-        line_level = self.origin + (0, self.cursor.slide(0))
-        self.cursor.slide(-boxheight / 2)
-
-        # Determine the two anchor points of the line.
-        size = self.canvas_owner.size
-        a = line_level + (size.outer, 0)
-        b = line_level + (size[0] - size.outer, 0)
-
-        # Encode the line.
-        self.wardrobe.mode_accent(stroke=True)
-        line = shapes.Line.new(a, b,
-                               stroke=self.wardrobe.color_stroke(),
-                               stroke_width=boxheight,
-                               stroke_dasharray='' if lines else '3, 3')
-        self.xml.append(line)
-
-        if lines:
-            # Add text to the box.
-            self.wardrobe.reset()
-            self.wardrobe.emphasis(bold=True, stroke=True)
-            self.wardrobe.mode_contrast(fill=True)
-
-            self.cursor.slide(extra / 2)
-            self.insert_text(content)
-            self.cursor.slide(extra / 2)
-        else:
-            self.cursor.slide(extra)
-        self.cursor.slide(self.canvas_owner.size.inner)
-
-    def put_path(self, pathfinder):
-        '''Add the effects of a cbg.svg.path.Pathfinder to a tree.
-
-        Automatically stroke the path with the thickness of the card size's
-        border, on the assumption that we're making a frame.
-
-        '''
-        attrib = pathfinder.attrdict()
-        attrib['fill'] = 'none'
-        attrib.update(self.wardrobe.dict_svg_stroke(self.size.outer))
-        lxml.etree.SubElement(self.xml, 'path', attrib)
-
-    def put_circle(self, content, origin):
-        '''Put a figure in a small circle along the border.
-
-        The origin argument must refer to something with the EdgePoint
-        API.
-
-        This method is deprecated for being too specific, but has no
-        clear replacement as yet. Use "insert_circle" to get just a
-        circle.
-
-        '''
-        radius = self.wardrobe.size.base
-        self.insert_circle(origin.displaced(radius), radius)
-
-        self.wardrobe.emphasis(bold=True, stroke=True)
-        self.wardrobe.mode_contrast(fill=True)
-        point = self.origin + origin.displaced(radius)
-        point += (0, self.wardrobe.size.base / 4)
-        attrib = self._attrdict_text(point)
-        lxml.etree.SubElement(self.xml, 'text', attrib).text = content
-
-    def insert_frame(self):
-        '''Frame the object in a border.'''
-
-        o = self.size.outer
-        pathfinder = path.Pathfinder()
-
-        joins = self.size.corner_offsets((1.5 * o, 0.5 * o))
-        for corner, pair in zip(self.size.corners(), joins):
+        for corner, pair in zip(corners, joins):
             a, b = map(lambda p: p + self.origin, pair)
-            c = corner.displaced((0.5 * o, 0.5 * o)) + self.origin
+            c = corner + self.origin
             if pathfinder:
                 pathfinder.lineto(a)
             else:
@@ -304,25 +297,69 @@ class SVGPresenter():
             pathfinder.quadratic_bezier_curveto(c, b)
 
         pathfinder.closepath()
-        self.put_path(pathfinder)
+        self.append(path.Path.new(pathfinder,
+                                  fill='none', wardrobe=self.wardrobe))
 
-    def insert_circle(self, offset, radius):
+    def insert_circle(self, centerpoint=None, radius=None):
         '''Put a circle anywhere.'''
-        position = self.origin + offset
-        extra = self.cursor.transform.attrdict(position=position)
-        shape = shapes.Circle.new(position, radius,
-                                  wardrobe=self.wardrobe, **extra)
-        self.xml.append(shape)
+        if centerpoint is None:
+            # Put it in the middle of the local canvas.
+            centerpoint = self.origin + self.size / 2
+
+        if radius is None:
+            radius = self.wardrobe.mode.thickness
+
+        shape = shapes.Circle.new(centerpoint, radius,
+                                  wardrobe=self.wardrobe)
+        self.append(shape)
         return shape
 
     def insert_rect(self, offset, size, rounding=None):
-        '''Put a rectangle anywhere.'''
+        '''Put a rectangle anywhere.
+
+        Deprecated. Rect should be called directly.
+
+        '''
         position = self.origin + offset
-        extra = self.cursor.transform.attrdict(position=position)
         shape = shapes.Rect.new(position, size, rounding=rounding,
-                                wardrobe=self.wardrobe, **extra)
-        self.xml.append(shape)
+                                wardrobe=self.wardrobe)
+        self.append(shape)
         return shape
+
+    def insert_paragraph(self, content, initial_indent='',
+                         subsequent_indent='', lead='', follow=True):
+        '''Insert text that can be multiple lines.
+
+        If inserted from the bottom of the card, the text block will
+        still read from top to bottom.
+
+        "subsequent_indent" is used for indentation after the first line,
+        as in the textwrap package.
+
+        "lead" is a word or phrase that starts the paragraph, following
+        the initial indent. Leads are highlighted.
+
+        '''
+        lines = self._wrap(lead + content, initial_indent, subsequent_indent)
+        first = [True] + [False] * (len(lines) - 1)
+        if self.cursor.flip_line_order:
+            lines = lines[::-1]
+            first = first[::-1]
+
+        x_relative = self.wardrobe.horizontal_anchor(self.size[0])
+        for line, top in zip(lines, first):
+            position = self.origin + (x_relative, self.line_feed())
+            element = misc.Text.new(position, wardrobe=self.wardrobe)
+            self.append(element)
+
+            if top and lead:
+                self._formatted_paragraph_lead(element, line, initial_indent,
+                                               lead)
+            else:
+                element.text = line
+
+        if follow:
+            self.cursor.slide(self.wardrobe.after_paragraph)
 
     def _wrap(self, content, initial, subsequent):
         return textwrap.wrap(content, width=self._characters_per_line,
@@ -332,16 +369,12 @@ class SVGPresenter():
     @property
     def _characters_per_line(self):
         '''The maximum number of characters printable on each line.'''
-        space = self.canvas_owner.size.interior_width
-        character_height = float(self.wardrobe.size)
-        character_width = self.wardrobe.width_to_height * character_height
-        return int(space / character_width)
+        return int(self.size[0] / self.wardrobe.character_width)
 
     def _formatted_paragraph_lead(self, text_element, line, ii, lead):
         '''Set the first part of a line in bold.'''
-        span = lxml.etree.SubElement(text_element, 'tspan',
-                                     {'style': 'font-weight:bold'})
-        span.text = lead
+        span = misc.Text.Span.new(text=lead, font_weight='bold')
+        text_element.append(span)
         try:
             span.tail = line.partition(ii + lead)[2]
         except IndexError:
@@ -350,79 +383,74 @@ class SVGPresenter():
             logging.critical(s.format(line, lead))
             raise
 
-    def _attrdict_text(self, position):
-        ret = self.wardrobe.dict_svg_font()
-        ret['x'], ret['y'] = misc.rounded(position)
-        ret.update(self.cursor.transform.attrdict(position=position))
-        ret['{{{}}}space'.format(NAMESPACE_XML)] = 'preserve'
-        return ret
 
+class FramedLayout(SVGPresenter):
+    '''Automatic indentation to the inside of a parent presenter's frame.
 
-class CardBase(SVGPresenter):
-    '''Superclass SVG presenter for one side of a playing card.'''
+    The frame is expected to be drawn by a parent presenter, governed by
+    the thickness attribute of that presenter's wardrobe.
 
-    size = sample.size.STANDARD_EURO
-
-    def _represent_fields(self, attribute_name):
-        for field in self.content_source:
-            presenter_class = getattr(field, attribute_name)
-            if presenter_class:
-                presenter = presenter_class(field, parent_presenter=self)
-                self.xml.append(presenter.xml)
-
-
-class CardFront(CardBase):
-    '''Example behaviour for the front of a card. Frames the content.'''
-
-    def __init__(self, content_source, **kwargs):
-        super().__init__(content_source, **kwargs)
-
-        # jump() is used here in preference to slide() because we are
-        # working with shallow copies, whose cursors actually share state.
-        self.bottom_up()
-        self.cursor.jump(1.6 * self.size.outer)
-        self.top_down()
-        self.cursor.jump(self.size.outer)
-
-        self._represent_fields('presenter_class_front')
-        self.insert_frame()
-
-
-class CardBack(CardBase):
-    '''Example behaviour for the back of a card.
-
-    This starts a third of the way down on the assumption that a simple
-    deck will only have a word or two on the back of each card, naming
-    the deck itself.
+    The advantage of separating this layouting function from the framing
+    presenter itself is that you can easily have two of these layouts per
+    card, proceeding in opposite directions, by using opposite cursor
+    classes.
 
     '''
 
-    def __init__(self, content_source, **kwargs):
-        super().__init__(content_source, **kwargs)
+    def _determine_origin(self, _):
+        '''An override.'''
+        frame = self.parent.wardrobe.mode.thickness
+        origin = (self.parent.origin[0] + frame, self.parent.origin[1] + frame)
+        return super()._determine_origin(origin)
 
-        self.cursor.jump(self.size[1] / 3)
+    def _determine_size(self, _):
+        '''An override.'''
+        frame = self.parent.wardrobe.mode.thickness
+        size = (self.parent.size[0] - 2 * frame,
+                self.parent.size[1] - 2 * frame)
+        return super()._determine_size(size)
 
-        self._represent_fields('presenter_class_back')
+
+class IndentedPresenter(SVGPresenter):
+    '''A presenter that reduces its own canvas on creation.
+
+    Like FramedLayout, but independent of a parent, and controllable in
+    its particulars.
+
+    The primary use case for this class is to follow FramedLayout for the
+    presentation of pure text elements that need some clear space to the
+    inside of the frame. Therefore, the default indentation is purely
+    horizontal.
+
+    '''
+
+    indentation = cbg.misc.Compass(0, 0.8)
+
+    def _determine_origin(self, origin):
+        '''An override.'''
+        origin = super()._determine_origin(origin)
+        return numpy.array((origin[0] + self.indentation.left,
+                            origin[1] + self.indentation.top))
+
+    def _determine_size(self, size):
+        '''An override.'''
+        size = super()._determine_size(size)
+        return numpy.array((size[0] - self.indentation.horizontal,
+                            size[1] - self.indentation.vertical))
 
 
-class FieldBase(SVGPresenter):
-    '''Presenter of some piece of content on the card, such as a title.'''
+class TextPresenter(IndentedPresenter):
+    '''A presenter that handles pure text contents pretty well on its own.'''
 
     def insert_paragraphs(self):
         '''An almost-bare-bones insertion of typical all-text content.'''
-        for paragraph in self.content_source:
+        for paragraph in self.field:
             self.set_up_paragraph()
-            self.insert_text(str(paragraph))
+            self.insert_paragraph(str(paragraph))
 
     def set_up_paragraph(self):
         '''To be overridden.'''
-        self.top_down()
-        self.wardrobe.reset()
+        pass
 
-
-class FieldOfText(FieldBase):
-    '''A tiny bit of added default behaviour.'''
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def present(self):
         self.insert_paragraphs()

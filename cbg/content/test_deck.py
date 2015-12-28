@@ -41,7 +41,7 @@ def suppress(logging_level):
 
 class TitleField(cbg.content.text.TextField):
     key = keys.TITLE
-    presenter_class_front = cbg.svg.presenter.FieldBase
+    presenter_class_front = cbg.svg.presenter.TextPresenter
 
 
 class CardSubclass(card.Card):

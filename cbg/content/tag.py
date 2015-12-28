@@ -9,6 +9,14 @@ Tags can also be used inside CBG applications, to drive programmatic
 logic. For example, the choice of color scheme for a card, or the text
 on its back, can be a result of its tags.
 
+An application may need several subclasses of any of the types of tags
+presented here. For instance, a syntactic subclass and a semantic one.
+A syntactic tag in a game would commonly be something like "reaction"
+or "phase 1". A semantic tag, drawn elsewhere, would typically be
+"animal", "item", etc. For such a system to retain its programmatic
+value, the "tags" convenience method on card objects will typically
+be overridden to combine the fields for different types of tags.
+
 ------
 
 This file is part of CBG.
@@ -26,15 +34,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
+import cbg.misc
 import cbg.keys as keys
 from cbg.content import field
 
 
-class BaseTag():
+class BaseTag(cbg.misc.Formattable):
     '''A word or phrase used to categorize cards.
 
     Creatable directly from text specifications, as it is little more
@@ -46,7 +55,7 @@ class BaseTag():
         self.key = key
 
     def __str__(self):
-        return self.key
+        return self.format_text(self.key)
 
     def __lt__(self, other):
         '''Tags sort alphabetically.'''
@@ -93,10 +102,9 @@ class RegisteredTag(BaseTag):
 
 
 class AdvancedTag(RegisteredTag):
-    '''An advanced type of tag with extra features.
+    '''An example of an advanced type of tag with extra features.
 
-    An advanced tag is either syntactic or semantic, with respect to
-    a rule system, and can be hierarchically related, weighted for
+    This advanced tag can be hierarchically related, weighted for
     sorting, and explicitly named.
 
     This class of tag can also be non-printing. Such tags should
@@ -104,39 +112,25 @@ class AdvancedTag(RegisteredTag):
 
     '''
 
-    def __init__(self, key, full_name=None,
-                 syntactic=False, printing=True,
+    def __init__(self, key, full_name=None, printing=True,
                  subordinate_to=None, sorting_value=0):
         super().__init__(key)
 
         self.full_name = self.key if full_name is None else full_name
-
-        # A syntactic tag in a game would commonly be something like
-        # "reaction" or "phase 1". A non-syntactic tag is treated as
-        # semantic, typically "animal", "item", etc. This categorization
-        # will obviously not be meaningful in every game. Consider it
-        # an example of something you can do with the base class.
-        self.syntactic = syntactic
 
         # A non-printing tag is invisible on cards. Use it to sort decks
         # or for arbitrary logic.
         self.printing = printing
 
         self.subordinate_to = subordinate_to
-        if self.subordinate_to:
-            if self.subordinate_to.syntactic is not self.syntactic:
-                s = 'Tag "{}" does not mix with its master, "{}".'
-                s = s.format(self, self.subordinate_to)
-                raise self.TaggingError(s)
 
         # The sorting value is intended not to sort tags as such, but
         # to sort decks of cards for logical presentation.
         # This requires an override of the "sorting_keys" property of cards.
         self.sorting_value = sorting_value
 
-    @property
-    def semantic(self):
-        return not self.syntactic
+    def __str__(self):
+        return self.format_text(self.full_name)
 
 
 class BaseTagField(field.AutoField):
@@ -195,14 +189,6 @@ class AdvancedTagField(RegisteredTagField):
                 raise self.plan[0].TaggingError(s)
 
     @property
-    def syntactic(self):
-        return self.as_set(lambda t: t.syntactic)
-
-    @property
-    def semantic(self):
-        return self.as_set(lambda t: t.semantic)
-
-    @property
     def subordinates(self):
         return self.as_set(lambda t: t.subordinate_to)
 
@@ -212,12 +198,7 @@ class AdvancedTagField(RegisteredTagField):
         return {t.subordinate_to for t in self.subordinates}
 
     def as_string(self, selection):
-        '''An override.
-
-        An example of a meaningful selection would be self.semantic,
-        to produce a string of semantic tags only.
-
-        '''
+        '''An override.'''
         return super().as_string(self._generate_strings(selection))
 
     def _generate_strings(self, selection):

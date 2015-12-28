@@ -18,26 +18,18 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
+import numpy
+
 from cbg import misc
+from cbg import geometry
 from cbg.svg import svg
 
 
-class _Shape(svg.SVGElement):
-    '''Basic shape superclass.'''
-
-    @classmethod
-    def new(cls, wardrobe=None, **kwargs):
-        if wardrobe is not None:
-            kwargs.update(wardrobe.dict_svg_fill())
-
-        return super().new(**kwargs)
-
-
-class Rect(_Shape):
+class Rect(svg.WardrobeStyledElement):
     '''A rectangle.'''
 
     TAG = 'rect'
@@ -50,10 +42,11 @@ class Rect(_Shape):
         if rounding is not None:
             kwargs['rx'] = kwargs['ry'] = misc.rounded(rounding)
 
-        return super().new(**kwargs)
+        center = numpy.array(position) + numpy.array(size) / 2
+        return super().new(transform_ext_auto=center, **kwargs)
 
 
-class Circle(_Shape):
+class Circle(svg.WardrobeStyledElement):
     '''A circle.'''
 
     TAG = 'circle'
@@ -62,10 +55,10 @@ class Circle(_Shape):
     def new(cls, centerpoint, radius, **kwargs):
         kwargs['cx'], kwargs['cy'] = misc.rounded(centerpoint)
         kwargs['r'] = misc.rounded(radius)
-        return super().new(**kwargs)
+        return super().new(transform_ext_auto=centerpoint, **kwargs)
 
 
-class Ellipse(_Shape):
+class Ellipse(svg.WardrobeStyledElement):
     '''An ellipse.'''
 
     TAG = 'ellipse'
@@ -74,10 +67,10 @@ class Ellipse(_Shape):
     def new(cls, centerpoint, radii, **kwargs):
         kwargs['cx'], kwargs['cy'] = misc.rounded(centerpoint)
         kwargs['rx'], kwargs['ry'] = misc.rounded(radii)
-        return super().new(**kwargs)
+        return super().new(transform_ext_auto=centerpoint, **kwargs)
 
 
-class Line(_Shape):
+class Line(svg.WardrobeStyledElement):
     '''A single-segment line.'''
 
     TAG = 'line'
@@ -86,10 +79,11 @@ class Line(_Shape):
     def new(cls, point1, point2, **kwargs):
         kwargs['x1'], kwargs['y1'] = misc.rounded(point1)
         kwargs['x2'], kwargs['y2'] = misc.rounded(point2)
-        return super().new(**kwargs)
+        mean = geometry.ListOfPoints((point1, point1)).mean
+        return super().new(transform_ext_auto=mean, **kwargs)
 
 
-class PolyLine(_Shape):
+class PolyLine(svg.WardrobeStyledElement):
     '''A multi-segment line.'''
 
     TAG = 'polyline'
@@ -98,7 +92,8 @@ class PolyLine(_Shape):
     def new(cls, points, **kwargs):
         coordinate_pairs = (','.join(misc.rounded(p) for p in points))
         kwargs['points'] = ' '.join(coordinate_pairs)
-        return super().new(**kwargs)
+        mean = geometry.ListOfPoints(points).mean
+        return super().new(transform_ext_auto=mean, **kwargs)
 
 
 class Polygon(PolyLine):

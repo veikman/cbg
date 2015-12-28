@@ -3,11 +3,14 @@
 
 from . import svg
 from . import misc
+from . import wardrobe
 from . import transform
-from . import cursor
 from . import presenter
+from . import card
 from . import image
 from . import grid
 from . import filter
+from . import tag
 
-__all__ = [filter, misc, transform, cursor, grid, image, presenter, svg]
+__all__ = [card, filter, misc, transform, grid, image, presenter, svg, tag,
+           wardrobe]

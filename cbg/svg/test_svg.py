@@ -27,7 +27,7 @@ class Basics(unittest.TestCase):
         self.assertIsNotNone(a.find('b'))
 
 
-class ArgumentFiltering(unittest.TestCase):
+class ArgumentFilteringFixture(unittest.TestCase):
 
     roster = set(('b', 'f-f'))
 
@@ -70,3 +70,17 @@ class ArgumentFiltering(unittest.TestCase):
         attr = {'f_f': 2}
         svg.SVGElement._filter_arguments('c', self.roster, attr)
         self.assertEqual(attr, {'c': 'f-f:2'})
+
+
+class ArgumentFilteringSVG(unittest.TestCase):
+
+    class E(svg.SVGElement):
+        TAG = 'glurd'
+
+    def test_filtering_hyphenated(self):
+        xml = self.E.new(stroke_width=2)
+        self.assertEqual(xml.attrib, {'style': 'stroke-width:2'})
+
+    def test_filtering_override(self):
+        xml = self.E.new(style='stroke-width:3', stroke_width=4)
+        self.assertEqual(xml.attrib, {'style': 'stroke-width:4'})

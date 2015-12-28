@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
@@ -33,7 +33,7 @@ import cbg.geometry
 from cbg.content import elements
 
 
-class BaseField(elements.Presentable):
+class BaseField(cbg.misc.SearchableTree, elements.Presentable):
     '''Abstract base class for organizing content on a type of card.
 
     Used to create classes to represent layouting contrivances as well as
@@ -49,6 +49,8 @@ class BaseField(elements.Presentable):
     plan = ()
 
     def __init__(self, specification=None, parent=None):
+        super().__init__()
+
         self.specification = specification
         self.parent = parent
 
@@ -57,26 +59,8 @@ class BaseField(elements.Presentable):
     def layout(self):
         raise NotImplementedError
 
-    def _search_single(self, hit_function, down=True):
-        '''Recursive search for a single field in the tree structure.'''
-
-        if hit_function(self):
-            return self
-
-        if down:
-            for child in self:
-                try:
-                    ret = child._search_single(hit_function, down=down)
-                    if ret is not None:
-                        return ret
-                except AttributeError:
-                    '''Non-field content.'''
-                    pass
-        else:
-            return self.parent._search_single(hit_function, down=down)
-
     def child_by_key(self, key):
-        return self._search_single(lambda c: c.key == key)
+        return self._search_single(lambda c: c.key == key, down=True)
 
     def child_by_key_required(self, key):
         ret = self.child_by_key(key)
@@ -86,6 +70,11 @@ class BaseField(elements.Presentable):
             raise KeyError(s.format(self, key))
 
         return ret
+
+    @property
+    def card(self):
+        '''Find an ancestor without a parent: presumably a card.'''
+        return self._search_single(lambda f: f.parent is None)
 
 
 class Atom(BaseField):
@@ -101,8 +90,11 @@ class Atom(BaseField):
         pass
 
     def _search_single(self, hit_function, **kwargs):
-        '''Recursive search for a single field in the tree structure.'''
+        '''Recursive search for a single field in the tree structure.
 
+        An override.
+
+        '''
         if hit_function(self):
             return self
 
@@ -180,7 +172,7 @@ class ArbitraryContainer(BaseSpecifiableField):
 
 
 class _NaturalContainer(BaseSpecifiableField):
-    '''For crude API compatibility with ArbitraryContainer.'''
+    '''Base class for basic API compatibility with ArbitraryContainer.'''
 
     @property
     def content(self):

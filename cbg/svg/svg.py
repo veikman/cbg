@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
@@ -27,6 +27,17 @@ import logging
 import collections
 
 import lxml.etree
+
+
+class KeyValuePairs(dict):
+    '''A temporary container for building structured SVG strings.'''
+
+    def __str__(self):
+        def iterate():
+            for k, v in sorted(self.items()):
+                yield ':'.join((python_to_svg_key(k), str(v)))
+
+        return ';'.join(iterate())
 
 
 class SVGElement(lxml.etree.ElementBase):
@@ -53,7 +64,8 @@ class SVGElement(lxml.etree.ElementBase):
     # Certain keyword arguments will automatically be intercepted
     # for inclusion in the "style" SVG attribute, instead of being
     # used as attributes on their own.
-    #                    CSS font properties:
+    #
+    #                  # CSS font properties:
     _keywords_style = {'font',
                        'font-family',
                        'font-size',
@@ -125,7 +137,8 @@ class SVGElement(lxml.etree.ElementBase):
                        'writing-mode'}
 
     @classmethod
-    def new(cls, children=None, set_id=False, **attributes):
+    def new(cls, children=None, set_id=False, text=None, tail=None,
+            **attributes):
         '''Create a new instance, configured with convenient logic.
 
         This class method should be called in preference to instantiating
@@ -146,27 +159,25 @@ class SVGElement(lxml.etree.ElementBase):
         # Suck some arguments into a style attribute.
         cls._filter_arguments('style', cls._keywords_style, attributes)
 
-        # Instantiate.
+        # Instantiate with the keyword properties of the XML node.
         instance = cls(**attributes)
 
-        # Note child elements.
+        # lxml treats internal and trailing content as attributes.
+        if text is not None:
+            instance.text = text
+        if tail is not None:
+            instance.tail = tail
+
+        # Note prefabricated child elements, in case they're relevant to an ID.
         if children:
             for c in children:
                 instance.append(c)
 
-        # Generate ID based on finalized instance, in case that matters.
+        # Generate ID based on finalized instance.
         if set_id:
             instance.set_id()
 
         return instance
-
-    @classmethod
-    def _python_to_svg_key(cls, string_key):
-        return string_key.replace('_', '-')
-
-    @classmethod
-    def _svg_to_python_key(cls, string_key):
-        return string_key.replace('-', '_')
 
     @classmethod
     def _filter_arguments(cls, attribute_name, roster, subject):
@@ -176,9 +187,11 @@ class SVGElement(lxml.etree.ElementBase):
         SVG "style" attribute without forcing the user to specify that,
         by means of inference from a list of legal style keywords.
 
+        To simplify selective overrides of 
+
         '''
 
-        # Fetch unfiltered, explicit content of attribute:
+        # Fetch the unfiltered, explicit content of the attribute:
         caught = subject.pop(attribute_name, {})
 
         # Transform, temporarily, into a dictionary with SVG keys intact:
@@ -194,12 +207,12 @@ class SVGElement(lxml.etree.ElementBase):
 
         # Add new properties from subject dictionary:
         for python_key in tuple(subject):
-            svg_key = cls._python_to_svg_key(python_key)
-            if svg_key in roster and svg_key not in caught:
+            svg_key = python_to_svg_key(python_key)
+            if svg_key in roster:
                 value = subject.pop(python_key)
-                caught[svg_key] = value
+                caught[svg_key] = value  # On collision, override caught.
 
-        # Destroy dummy values:
+        # Destroy dummy values using a copy as a stable index:
         for svg_key, value in tuple(caught.items()):
             if value == '':
                 # A dummy inserted to pre-empt filtering by this method.
@@ -230,6 +243,20 @@ class SVGElement(lxml.etree.ElementBase):
         '''Generate a string for use as an "id" attribute.'''
         return ''.join((self._id_prefix, str(next(self._id_iterator))))
 
+    def append(self, element):
+        '''An override.
+
+        Meant only to help troubleshoot the common mistake of not returning
+        an instance when overriding new().
+
+        '''
+        try:
+            super().append(element)
+        except TypeError:
+            s = 'Cannot append {} to {}.'
+            logging.error(s.format(repr(element), repr(self)))
+            raise
+
 
 class IDElement(SVGElement):
     '''A very minor tweak to set an ID by default.'''
@@ -237,3 +264,35 @@ class IDElement(SVGElement):
     @classmethod
     def new(cls, set_id=True, **attributes):
         return super().new(set_id=set_id, **attributes)
+
+
+class WardrobeStyledElement(SVGElement):
+
+    @classmethod
+    def new(cls, wardrobe=None, transform_ext=None, transform_ext_auto=None,
+            **attributes):
+        '''Use a provided wardrobe.
+
+        CBG provides a wardrobe class as a convenience for generating
+        certain common stylistic attributes systematically.
+
+        '''
+        if wardrobe:
+            if transform_ext is None:
+                transform_ext = transform_ext_auto
+
+            auto = wardrobe.to_svg_attributes(transform_ext)
+            auto.update(attributes)
+            attributes = auto
+
+        return super().new(**attributes)
+
+
+def python_to_svg_key(string_key):
+    '''SVG uses dashes as word separators in its attribute data.'''
+    return string_key.replace('_', '-')
+
+
+def svg_to_python_key(string_key):
+    '''Python uses underscores as word separators in its variable names.'''
+    return string_key.replace('-', '_')

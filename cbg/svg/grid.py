@@ -18,32 +18,28 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
 import numpy
-import lxml.etree
 
 from cbg.svg import presenter
-from cbg import size
 
 
-class Square(presenter.FieldBase):
+class Square(presenter.SVGPresenter):
     '''A square map tile.'''
 
-    size = size.CardSize((3, 3), border_outer=0.4)
+    size = (3, 3)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def present(self):
         self.insert_frame()
 
 
 class Empty(Square):
-    '''To be subclassed with a presenter.
+    '''To be subclassed.
 
-    Referenced as an attribute of a content class. Declaring the subclass
-    in a similar manner makes the subclass a drop-in replacement.
+    Referenced as an attribute of a content class elsewhere.
 
     '''
     pass
@@ -55,24 +51,21 @@ class Affected(Square):
 
 
 class SquareGrid(presenter.SVGPresenter):
+    '''A group of square sub-elements, without any label or explanation.
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    To enable filtering, clipping etc. of the grid alone, it is grouped
+    by this presenter class. Any labelling should be done by a superordinate
+    presenter.
 
-        # Belatedly choose a somewhat arbitrary origin.
-        relative_upper_left = (5, self.cursor.displacement + 1)
-        self._origin = self.origin + numpy.array(relative_upper_left)
+    '''
 
-        # The field as a whole may contain e.g. a text label over the grid,
-        # provided by a subclass. To enable filtering, clipping etc. of the
-        # grid alone, it is grouped here.
-        grid_as_group = lxml.etree.Element('g')
+    def present(self):
+        for coordinates, cell in numpy.ndenumerate(self.field):
+            offset = numpy.array(coordinates) * cell.presenter_class_front.size
+            origin = self.origin + (0, self.cursor.offset) + offset
+            presenter = cell.presenter_class_front.new(cell, origin=origin,
+                                                       parent=self)
+            self.append(presenter)
 
-        for coordinates, cell in numpy.ndenumerate(self.content_source):
-            origin = coordinates * cell.presenter_class_front.size
-            origin += tuple(self.origin)
-            presenter = cell.presenter_class_front(cell, origin=origin,
-                                                   parent_presenter=self)
-            grid_as_group.append(presenter.xml)
-
-        self.xml.append(grid_as_group)
+        if self.field:
+            self.cursor.slide(coordinates[1])

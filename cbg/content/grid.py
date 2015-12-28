@@ -38,7 +38,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CBG.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2014-2015 Viktor Eikman
+Copyright 2014-2016 Viktor Eikman
 
 '''
 
@@ -85,7 +85,7 @@ class Map(field.BaseSpecifiableField, field.Array):
             return '.'
 
     # By default, the map will only be large enough to show its
-    # specified contents, with no surrounding wall or lip.
+    # specified contents, with no surrounding wall or lip of extra cells.
     cell_padding = 0
 
     def in_spec(self):
