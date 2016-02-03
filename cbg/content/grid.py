@@ -21,26 +21,24 @@ Each content type has its own field class, with its own presenter(s),
 which will determine whether to fill each cell, draw a border around
 multiple cells, connect cells with an arrow etc.
 
-------
-
-This file is part of CBG.
-
-CBG is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-CBG is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with CBG.  If not, see <http://www.gnu.org/licenses/>.
-
-Copyright 2014-2016 Viktor Eikman
-
 '''
+
+# This file is part of CBG.
+#
+# CBG is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# CBG is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with CBG.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright 2014-2016 Viktor Eikman
 
 # TODO: Automatically populate maps from all (composited) cell subclasses.
 

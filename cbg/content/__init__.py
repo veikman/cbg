@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Content owners for CBG.'''
+'''SVG-independent content models (owners) for CBG.'''
 
 from . import card
 from . import deck
