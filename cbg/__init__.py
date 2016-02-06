@@ -8,7 +8,6 @@ from . import geometry
 from . import sample
 from . import svg
 from . import content
-from . import size
 from . import app
 
-__all__ = [app, content, cursor, geometry, keys, misc, sample, size, svg]
+__all__ = [app, content, cursor, geometry, keys, misc, sample, svg]
