@@ -98,10 +98,12 @@ class Application():
         parser.add_argument('--no-fronts', help=s, action='store_true')
         s = 'include the backs of cards'
         parser.add_argument('-B', '--backs', help=s, action='store_true')
-        s = 'card selection blacklist'
-        parser.add_argument('-b', '--blacklist', nargs='+', help=s, default=[])
-        s = 'card selection whitelist (applied before blacklist)'
-        parser.add_argument('-w', '--whitelist', nargs='+', help=s, default=[])
+        s = 'card selection blacklist entry'
+        parser.add_argument('-b', '--blacklist', metavar='REGEX', default=[],
+                            action='append', help=s)
+        s = 'card selection whitelist entry (applied before blacklist)'
+        parser.add_argument('-w', '--whitelist', metavar='REGEX', default=[],
+                            action='append', help=s)
         s = '1 copy of each card'
         parser.add_argument('-g', '--gallery', help=s, action='store_true')
 
@@ -119,8 +121,15 @@ class Application():
 
         parser.add_argument('-r', '--rasterize', help='bitmap output',
                             action='store_true')
-        s = 'container format inferred from filename'
+        s = 'produce a document, format inferred from filename'
         parser.add_argument('-f', '--file-output', help=s)
+
+        parser.add_argument('--viewer-svg', metavar='APP', default='eog',
+                            help='application used to display SVG images')
+        parser.add_argument('--viewer-raster', metavar='APP', default='eog',
+                            help='application used to display bitmap images')
+        parser.add_argument('--viewer-file', metavar='APP', default='evince',
+                            help='application used to display documents')
 
         group = parser.add_mutually_exclusive_group()
         group.add_argument('-v', '--verbose', help='extra logging',
@@ -210,14 +219,23 @@ class Application():
                 return 1
 
         if self.args.display:
-            # A very limited selection of viewer applications.
+            # Image viewers are assumed to be able to handle a folder name.
             if self.args.file_output:
                 filename = self.args.file_output
-                viewer = 'evince'
+                viewer = self.args.viewer_file
+            elif self.args.rasterize or self.args.print:
+                filename = self.folder_printing
+                viewer = self.args.viewer_raster
             else:
-                filename = sorted(glob.glob('{}/*'.format(self.folder_svg)))[0]
-                viewer = 'eog'
-            subprocess.call([viewer, filename])
+                filename = self.folder_svg
+                viewer = self.args.viewer_svg
+
+            try:
+                subprocess.call([viewer, filename])
+            except FileNotFoundError:
+                logging.error('No such viewer: "{}"'.format(viewer))
+                s = 'Please name your preferred viewer with a CLI flag.'
+                logging.info(s)
         elif self.args.print:
             self.print_output()
 
@@ -286,27 +304,32 @@ class Application():
 
     def limit_selection(self, specs):
         '''Apply whitelist, blacklist and gallery mode.'''
+        whitelist_exists = bool(self.args.whitelist)
+
         for card in specs:
+            whitelisted = False
             for restriction in self.args.whitelist:
-                restricted = self._apply_restriction(restriction, card)
-                if restricted is None:
-                    # No hit.
-                    specs[card] = 0
-                else:
+                n_restricted = self._apply_restriction(restriction, card)
+                if n_restricted is not None:
+                    whitelisted = True
                     # If negative: No change from default number.
-                    if restricted >= 0:
-                        specs[card] = restricted
-                    break
+                    if n_restricted >= 0:
+                        specs[card] = n_restricted
+                    break  # Apply only the first matching white restriction.
+
+            if whitelist_exists and not whitelisted:
+                specs[card] = 0
+
             for restriction in self.args.blacklist:
-                restricted = self._apply_restriction(restriction, card)
-                if restricted is not None:
-                    if restricted >= 0:
-                        # Not-so-black secondary filter.
-                        specs[card] = restricted
+                n_restricted = self._apply_restriction(restriction, card)
+                if n_restricted is not None:
+                    if n_restricted >= 0:
+                        # A not-so-black secondary filter.
+                        specs[card] = n_restricted
                     else:
                         # Default behaviour on hit: Blacklisted.
                         specs[card] = 0
-                    break
+                    break  # Apply only the first matching black restriction.
 
             if specs[card] and self.args.gallery:
                 specs[card] = 1
