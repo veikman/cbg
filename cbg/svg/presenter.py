@@ -432,7 +432,7 @@ class IndentedPresenter(SVGPresenter):
 
     '''
 
-    indentation = cbg.misc.Compass(0, 0.8)
+    indentation = cbg.misc.Compass(0, 1)
 
     def _determine_origin(self, origin):
         '''An override.'''
