@@ -46,7 +46,7 @@ class Font(unittest.TestCase):
             modes = {wr.MAIN: wr.Mode(font=wr.Font('Wax'))}
             font_size = 4
 
-        ref = {keys.STYLE: 'font-family:Wax;font-size:4.0'}
+        ref = {keys.STYLE: 'font-family:Wax;font-size:4.0px'}
         self.assertEqual(Wardrobe().to_svg_attributes(), ref)
 
     def test_style_stroke_default_color_is_included(self):
@@ -55,7 +55,7 @@ class Font(unittest.TestCase):
                                       thickness=0.02)}
             font_size = 3
 
-        ref = {keys.STYLE: ('font-family:Wax;font-size:3.0;stroke:#000000;'
+        ref = {keys.STYLE: ('font-family:Wax;font-size:3.0px;stroke:#000000;'
                             'stroke-width:0.06')}
         self.assertEqual(Wardrobe().to_svg_attributes(), ref)
 
@@ -66,7 +66,7 @@ class Font(unittest.TestCase):
                                       thickness=0.03)}
             font_size = 3
 
-        ref = {keys.STYLE: ('font-family:Wax;font-size:3.0;stroke:#ffffff;'
+        ref = {keys.STYLE: ('font-family:Wax;font-size:3.0px;stroke:#ffffff;'
                             'stroke-width:0.09')}
         self.assertEqual(Wardrobe().to_svg_attributes(), ref)
 
@@ -133,7 +133,7 @@ class MultiModal(unittest.TestCase):
 
         w.set_mode('label')
         ref = {keys.STYLE:
-               'fill:#facade;font-family:Googe Light;font-size:2.0'}
+               'fill:#facade;font-family:Googe Light;font-size:2.0px'}
         self.assertEqual(w.to_svg_attributes(), ref)
 
         w.reset()
@@ -169,20 +169,22 @@ class Duplication(unittest.TestCase):
                 self.mode = self.modes['a']
 
         w = Wardrobe0()
-        ref = {keys.STYLE: 'font-family:Vot;font-size:9.0;font-weight:bold'}
+        ref = {keys.STYLE: 'font-family:Vot;font-size:9.0px;font-weight:bold'}
         self.assertEqual(w.to_svg_attributes(), ref)
 
         w.set_mode('b')
-        ref = {keys.STYLE: 'font-family:Geb;font-size:9.0'}
+        ref = {keys.STYLE: 'font-family:Geb;font-size:9.0px'}
         self.assertEqual(w.to_svg_attributes(), ref)
 
         class Wardrobe1(Wardrobe0):
             modes = Wardrobe0.copy_modes(weight='lighter')
 
         w = Wardrobe1()
-        ref = {keys.STYLE: 'font-family:Vot;font-size:9.0;font-weight:lighter'}
+        ref = {keys.STYLE:
+               'font-family:Vot;font-size:9.0px;font-weight:lighter'}
         self.assertEqual(w.to_svg_attributes(), ref)
 
         w.set_mode('b')
-        ref = {keys.STYLE: 'font-family:Geb;font-size:9.0;font-weight:lighter'}
+        ref = {keys.STYLE:
+               'font-family:Geb;font-size:9.0px;font-weight:lighter'}
         self.assertEqual(w.to_svg_attributes(), ref)

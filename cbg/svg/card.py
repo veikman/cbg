@@ -19,6 +19,7 @@
 # Copyright 2014-2016 Viktor Eikman
 
 
+from cbg.sample import color
 from cbg.svg import presenter
 import cbg.cursor
 
@@ -53,6 +54,7 @@ class CardFront(CardPresenter):
     recursion_attribute_name = presenter.RECURSION_FRONT
 
     def present(self):
+        self.insert_frame(fill=color.WHITE)
         self.recurse()
         self.insert_frame()
 

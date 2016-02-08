@@ -269,8 +269,14 @@ class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
         return self.cursor.text(self.wardrobe.font_size,
                                 self.wardrobe.line_height)
 
-    def insert_frame(self, thickness=None, outside_radius=None):
-        '''Create a border inside the edges of the canvas.'''
+    def insert_frame(self, thickness=None, outside_radius=None, fill='none'):
+        '''Add a frame to self.
+
+        If fill is 'none', i.e. transparent, create a border inside the
+        edges of the canvas, using the wardrobe. Otherwise, create a simple
+        opaque plate using the specified fill color.
+
+        '''
 
         if thickness is None:
             thickness = self.wardrobe.mode.thickness
@@ -294,8 +300,13 @@ class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
             pathfinder.quadratic_bezier_curveto(c, b)
 
         pathfinder.closepath()
-        self.append(path.Path.new(pathfinder,
-                                  fill='none', wardrobe=self.wardrobe))
+
+        if fill == 'none':
+            wardrobe = self.wardrobe
+        else:
+            wardrobe = None
+
+        self.append(path.Path.new(pathfinder, fill=fill, wardrobe=wardrobe))
 
     def insert_circle(self, centerpoint=None, radius=None):
         '''Put a circle anywhere.'''

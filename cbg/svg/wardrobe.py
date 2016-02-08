@@ -152,6 +152,7 @@ class Wardrobe():
     transformations = list()
 
     # Less commonly overridden.
+    font_size_unit = 'px'  # The effective default in e.g. Eye of GNOME.
     line_height_factor = 1.17
     paragraph_break_factor = 0.3
 
@@ -227,7 +228,8 @@ class Wardrobe():
 
         if self.literate:
             style['font-family'] = str(self.mode.font)
-            style['font-size'] = misc.rounded(float(self.font_size))
+            size_value = misc.rounded(float(self.font_size))
+            style['font-size'] = size_value + self.font_size_unit
 
             if self.mode.weight is not None:
                 style['font-weight'] = self.mode.weight
