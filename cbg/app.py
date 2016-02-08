@@ -20,6 +20,7 @@
 
 
 import argparse
+import ast
 import collections
 import os
 import glob
@@ -27,8 +28,11 @@ import logging
 import re
 import subprocess
 
+import numpy
+
 import cbg.content.deck as deck
 import cbg.svg.image as image
+import cbg.sample.size
 
 
 HELP_SELECT = ('Syntax for card selection: [AMOUNT:][tag=]REGEX',
@@ -107,22 +111,15 @@ class Application():
         s = '1 copy of each card'
         parser.add_argument('-g', '--gallery', help=s, action='store_true')
 
-        group = parser.add_mutually_exclusive_group()
-        s = 'alternate between front sheets and back sheets'
-        group.add_argument('--duplex', help=s, action='store_true')
-        s = 'treat both sides of cards similarly'
-        group.add_argument('--neighbours', help=s, action='store_true')
-
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('-p', '--print', help='send output to printer',
-                           action='store_true')
-        group.add_argument('-d', '--display', help='view output',
-                           action='store_true')
-
         parser.add_argument('-r', '--rasterize', help='bitmap output',
                             action='store_true')
         s = 'produce a document, format inferred from filename'
         parser.add_argument('-f', '--file-output', help=s)
+
+        s = 'paper size for printing, as a string instruction to lp'
+        parser.add_argument('--print-size', default='A4', help=s)
+        s = 'image margins to the outermost spaces for card(s), in mm'
+        parser.add_argument('-m', '--margins', metavar='TUPLE', help=s)
 
         parser.add_argument('--viewer-svg', metavar='APP', default='eog',
                             help='application used to display SVG images')
@@ -130,6 +127,25 @@ class Application():
                             help='application used to display bitmap images')
         parser.add_argument('--viewer-file', metavar='APP', default='evince',
                             help='application used to display documents')
+
+        group = parser.add_mutually_exclusive_group()
+        s = 'send output to printer through lp (GNU+Linux only)'
+        group.add_argument('-p', '--print', help=s, action='store_true')
+        group.add_argument('-d', '--display', help='view output',
+                           action='store_true')
+
+        group = parser.add_mutually_exclusive_group()
+        s = 'alternate between front sheets and back sheets'
+        group.add_argument('--duplex', help=s, action='store_true')
+        s = 'treat both sides of cards similarly'
+        group.add_argument('--neighbours', help=s, action='store_true')
+
+        group = parser.add_mutually_exclusive_group()
+        s = 'exact image size, in mm'
+        group.add_argument('--image-size', default=cbg.sample.size.A4,
+                           metavar='TUPLE', help=s)
+        s = 'give each card its own image'
+        group.add_argument('-s', '--singles', action='store_true', help=s)
 
         group = parser.add_mutually_exclusive_group()
         group.add_argument('-v', '--verbose', help='extra logging',
@@ -150,6 +166,13 @@ class Application():
         logging.getLogger().setLevel(level)
 
     def execute(self):
+        reformat = self._eval_numeric_2tuple
+        try:
+            self.args.image_size = reformat(self.args.image_size)
+            self.args.margins = reformat(self.args.margins)
+        except:
+            return 1
+
         if self.args.no_fronts and not self.args.backs:
             s = 'Not processing fronts or backs.'
             logging.error(s)
@@ -176,6 +199,21 @@ class Application():
         self._all_layouts()
         return self._output()
 
+    def _eval_numeric_2tuple(self, value):
+        if isinstance(value, str):
+            # Received via CLI.
+            try:
+                value = ast.literal_eval(value)
+                assert isinstance(value, tuple)
+                assert len(value) == 2
+                assert all(map(lambda x: isinstance(x, (int, float)), value))
+            except:
+                s = 'Got malformed size specification: {}'
+                logging.error(s.format(value))
+                raise
+
+        return value
+
     def _all_layouts(self):
         '''Lay out pages in SVG. Save the resulting page queue.'''
 
@@ -188,6 +226,7 @@ class Application():
             # Two rounds of layouts.
             sides = ((not self.args.no_fronts, True, False, True, False),
                      (self.args.backs, False, True, False, True))
+
         for requested, obverse, reverse, insert_front, insert_back in sides:
             if requested:
                 self.layout(page_queue, obverse, reverse,
@@ -269,8 +308,21 @@ class Application():
                insert_front, insert_back):
         '''Add to a queue of layed-out pages, full of cards.'''
 
-        def new_page():
-            page_queue.append(image.Image.new(left_to_right=insert_front,
+        assert self.specs
+
+        def new_page(card_size):
+            if self.args.singles:
+                # Use card size as image size. Add margins.
+                padding = numpy.array(self.args.margins or (0, 0))
+                dimensions = 2 * padding + card_size
+            else:
+                # Use specified image size. Don't add margins.
+                padding = self.args.margins or cbg.sample.size.A4_MARGINS
+                dimensions = self.args.image_size
+
+            page_queue.append(image.Image.new(dimensions=dimensions,
+                                              padding=padding,
+                                              left_to_right=insert_front,
                                               obverse=obverse_on_page,
                                               reverse=reverse_on_page))
 
@@ -280,15 +332,15 @@ class Application():
                 logging.debug(s.format(cardcopy.__class__.__name__))
                 return
 
-            if not page_queue[-1].can_fit(presenter_class.size):
-                new_page()
+            if (not page_queue or
+                    not page_queue[-1].can_fit(presenter_class.size)):
+                new_page(presenter_class.size)
 
             origin = page_queue[-1].free_spot(presenter_class.size)
             presenter = presenter_class.new(cardcopy, origin=origin,
                                             parent=page_queue[-1])
             page_queue[-1].add(presenter_class.size, presenter)
 
-        new_page()
         for listing in self.specs.values():
             # The requisite number of copies of each card.
             for cardcopy in listing:
@@ -372,7 +424,9 @@ class Application():
     def print_output(self):
         '''Print graphics from individual page files.'''
         for png in sorted(glob.glob('{}/*'.format(self.folder_printing))):
-            subprocess.check_call(['lp', '-o', 'media=A4', png])
+            subprocess.check_call(['lp', '-o',
+                                   'media={}'.format(self.args.print_size),
+                                   png])
 
         # NOTE: lp prints SVG as text, not graphics. Hence we use the
         # rasterized forms here.

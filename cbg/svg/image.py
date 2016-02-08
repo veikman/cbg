@@ -59,9 +59,17 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
         '''
         TAG = 'defs'
 
+    class Full(Exception):
+        '''Not an error. Footprint cannot be fitted into current layout.'''
+        pass
+
+    class TooSmall(Exception):
+        '''Card footprint too large for clear image. Layout impossible.'''
+        pass
+
     @classmethod
-    def new(cls, dimensions=size.A4, padding=(16, 9), left_to_right=True,
-            obverse=None, reverse=None, **kwargs):
+    def new(cls, dimensions=size.A4, padding=size.A4_MARGINS,
+            left_to_right=True, obverse=None, reverse=None, **kwargs):
         '''Create an image.
 
         The "padding" flag measures out a margin between the limits of
@@ -142,7 +150,8 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
         occupied_y = sum(self.row_heights)
 
         if space_x < card_x or space_y < card_y:
-            raise self.PrintableAreaTooSmall()
+            s = 'Card can never fit image of selected size.'
+            raise self.TooSmall(s)
         if space_x < row_x + card_x:
             # The current row must be getting too long.
             # We need to see if the next row would work.
@@ -157,7 +166,7 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
     def add(self, footprint, xml):
         if not self.can_fit(footprint):
-            raise self.PageFull()
+            raise self.Full('Cannot add another card to image: Image full.')
 
         if self.printable[0] < self.row_size[0] + footprint[0]:
             self.row_heights.append(self.row_size[1])
