@@ -111,8 +111,11 @@ class Application():
         s = '1 copy of each card'
         parser.add_argument('-g', '--gallery', help=s, action='store_true')
 
-        parser.add_argument('-r', '--rasterize', help='bitmap output',
-                            action='store_true')
+        parser.add_argument('-r', '--rasterize', action='store_true',
+                            help='bitmap output via Inkscape')
+        parser.add_argument('--dpi', default=600,  # HP LaserJet 1010 capcity.
+                            help='bitmap resolution, defaults to 600 DPI')
+
         s = 'produce a document, format inferred from filename'
         parser.add_argument('-f', '--file-output', help=s)
 
@@ -399,13 +402,13 @@ class Application():
             logging.error(s.format(self.folder_printing, repr(e)))
             return False
 
-        dpi = '600'  # The capacity of an HP LaserJet 1010.
         for svg in sorted(glob.glob('{}/*'.format(self.folder_svg))):
             logging.debug('Rasterizing {}.'.format(svg))
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
             png = os.path.join(self.folder_printing, png)
+            cmd = ['inkscape', '-e', png, '-d', str(self.args.dpi), svg]
             try:
-                subprocess.check_call(['inkscape', '-e', png, '-d', dpi, svg])
+                subprocess.check_call(cmd)
             except subprocess.CalledProcessError:
                 return False
 
