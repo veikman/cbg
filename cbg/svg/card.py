@@ -21,42 +21,47 @@
 
 from cbg.sample import color
 from cbg.svg import presenter
+from cbg.svg.shapes import Rect
+from cbg.svg import wardrobe
 import cbg.cursor
 
 
 class CardPresenter(presenter.SVGPresenter):
     '''Abstract superclass SVG presenter for one side of a playing card.'''
 
+    class Wardrobe(wardrobe.Wardrobe):
+        '''A wardrobe for drawing a plain background and a black frame.'''
+        modes = {wardrobe.MAIN: wardrobe.Mode(fill_colors=(color.NONE,),
+                                              thickness=2),
+                 wardrobe.BACKGROUND: wardrobe.Mode(fill_colors=(color.WHITE,))
+                 }
+
     cursor_class = cbg.cursor.FromTop
-
-    @classmethod
-    def new(cls, *args, **kwargs):
-        inst = super().new(*args, **kwargs)
-        inst._prune_dud_presenters()
-        return inst
-
-    def _prune_dud_presenters(self):
-        '''Delete completely superfluous elements.'''
-        for element in self.iter():
-            if element == self:
-                continue
-            if not len(element) and not element.text and not element.attrib:
-                element.getparent().remove(element)
 
 
 class CardFront(CardPresenter):
-    '''Example behaviour for the front of a card.
+    '''Example behaviour for the front of a card.'''
 
-    Inheritors of this class typically have Wardrobe set to something
-    that generates a thick frame, such as cbg.sample.wardrobe.Frame.
-
-    '''
     recursion_attribute_name = presenter.RECURSION_FRONT
 
     def present(self):
-        self.insert_frame(fill=color.WHITE)
+        '''Draw a white background and a rounded black frame on top.'''
+
+        # Add background.
+        t = self.wardrobe.mode.thickness  # Preserved from the main mode.
+        self.wardrobe.set_mode(wardrobe.BACKGROUND)
+        self.append(Rect.new(self.origin + t / 2, self.size - t, rounding=t,
+                             wardrobe=self.wardrobe,))
+
+        # Restore wardrobe thickness for use by children in layouting.
+        self.wardrobe.reset()
+
+        # Add children.
         self.recurse()
-        self.insert_frame()
+
+        # Add frame.
+        self.append(Rect.new(self.origin + t / 2, self.size - t,
+                             rounding=t / 2, wardrobe=self.wardrobe))
 
 
 class CardBack(CardPresenter):
@@ -70,5 +75,12 @@ class CardBack(CardPresenter):
     recursion_attribute_name = presenter.RECURSION_BACK
 
     def present(self):
+        '''Draw a white background without a frame, and adjust the cursor.'''
+        t = self.wardrobe.mode.thickness
+        self.wardrobe.set_mode(wardrobe.BACKGROUND)
+        self.append(Rect.new(self.origin, self.size, rounding=t,
+                             wardrobe=self.wardrobe,))
+        self.wardrobe.reset()
+
         self.cursor.slide(self.size[1] / 3)
         self.recurse()

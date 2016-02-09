@@ -22,6 +22,7 @@
 import numpy
 
 from cbg.svg import presenter
+from cbg.svg import shapes
 
 
 class Square(presenter.SVGPresenter):
@@ -30,7 +31,9 @@ class Square(presenter.SVGPresenter):
     size = (3, 3)
 
     def present(self):
-        self.insert_frame()
+        t = self.wardrobe.mode.thickness
+        self.append(shapes.Rect.new(self.origin + t / 2, self.size - t,
+                                    rounding=t, wardrobe=self.wardrobe))
 
 
 class Empty(Square):

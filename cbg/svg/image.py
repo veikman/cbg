@@ -180,6 +180,13 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
             self.row_size = (self.row_size[0], footprint[1])
 
     def save(self, filepath):
+        '''Prune dud presenters and save SVG code to file.'''
+        for element in self.iter():
+            if element == self:
+                continue
+            if not len(element) and not element.text and not element.attrib:
+                element.getparent().remove(element)
+
         if self.obverse and not self.reverse:
             filepath += '_obverse'
         elif self.reverse and not self.obverse:

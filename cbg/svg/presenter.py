@@ -28,8 +28,6 @@ import numpy
 import cbg.misc
 import cbg.geometry
 from cbg.svg import svg
-from cbg.svg import path
-from cbg.svg import shapes
 from cbg.svg import misc
 
 
@@ -268,71 +266,6 @@ class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
         '''Advance the cursor by the height of a line of text.'''
         return self.cursor.text(self.wardrobe.font_size,
                                 self.wardrobe.line_height)
-
-    def insert_frame(self, thickness=None, outside_radius=None, fill='none'):
-        '''Add a frame to self.
-
-        If fill is 'none', i.e. transparent, create a border inside the
-        edges of the canvas, using the wardrobe. Otherwise, create a simple
-        opaque plate using the specified fill color.
-
-        '''
-
-        if thickness is None:
-            thickness = self.wardrobe.mode.thickness
-        if outside_radius is None:
-            outside_radius = 2 * thickness
-
-        middle = thickness / 2
-        area = cbg.geometry.Rectangle(self.size)
-        pathfinder = path.Path.Pathfinder()
-
-        corners = area.corners(offset=middle)
-        joins = area.corner_offsets((outside_radius - middle, middle))
-
-        for corner, pair in zip(corners, joins):
-            a, b = map(lambda p: p + self.origin, pair)
-            c = corner + self.origin
-            if pathfinder:
-                pathfinder.lineto(a)
-            else:
-                pathfinder.moveto(a)
-            pathfinder.quadratic_bezier_curveto(c, b)
-
-        pathfinder.closepath()
-
-        if fill == 'none':
-            wardrobe = self.wardrobe
-        else:
-            wardrobe = None
-
-        self.append(path.Path.new(pathfinder, fill=fill, wardrobe=wardrobe))
-
-    def insert_circle(self, centerpoint=None, radius=None):
-        '''Put a circle anywhere.'''
-        if centerpoint is None:
-            # Put it in the middle of the local canvas.
-            centerpoint = self.origin + self.size / 2
-
-        if radius is None:
-            radius = self.wardrobe.mode.thickness
-
-        shape = shapes.Circle.new(centerpoint, radius,
-                                  wardrobe=self.wardrobe)
-        self.append(shape)
-        return shape
-
-    def insert_rect(self, offset, size, rounding=None):
-        '''Put a rectangle anywhere.
-
-        Deprecated. Rect should be called directly.
-
-        '''
-        position = self.origin + offset
-        shape = shapes.Rect.new(position, size, rounding=rounding,
-                                wardrobe=self.wardrobe)
-        self.append(shape)
-        return shape
 
     def insert_paragraph(self, content, initial_indent='',
                          subsequent_indent='', lead='', follow=True):

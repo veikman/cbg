@@ -15,10 +15,6 @@ class Grayscale(wardrobe.Wardrobe):
                                               stroke_colors=(color.BLACK,))}
 
 
-class Frame(wardrobe.Wardrobe):
-    modes = {wardrobe.MAIN: wardrobe.Mode(thickness=2)}
-
-
 class BasicTextWardrobe(Grayscale):
     modes = {wardrobe.MAIN: wardrobe.Mode(font=font.ARIAL, anchor='middle')}
     font_size = 4
