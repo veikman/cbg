@@ -50,8 +50,8 @@ class CardFront(CardPresenter):
         # Add background.
         t = self.wardrobe.mode.thickness  # Preserved from the main mode.
         self.wardrobe.set_mode(wardrobe.BACKGROUND)
-        self.append(Rect.new(self.origin + t / 2, self.size - t, rounding=t,
-                             wardrobe=self.wardrobe,))
+        self.append(Rect.new(self.origin + t / 2, self.size - t,
+                             rounding=t, wardrobe=self.wardrobe,))
 
         # Restore wardrobe thickness for use by children in layouting.
         self.wardrobe.reset()
@@ -61,7 +61,7 @@ class CardFront(CardPresenter):
 
         # Add frame.
         self.append(Rect.new(self.origin + t / 2, self.size - t,
-                             rounding=t / 2, wardrobe=self.wardrobe))
+                             rounding=t, wardrobe=self.wardrobe))
 
 
 class CardBack(CardPresenter):
@@ -78,7 +78,7 @@ class CardBack(CardPresenter):
         '''Draw a white background without a frame, and adjust the cursor.'''
         t = self.wardrobe.mode.thickness
         self.wardrobe.set_mode(wardrobe.BACKGROUND)
-        self.append(Rect.new(self.origin, self.size, rounding=t,
+        self.append(Rect.new(self.origin, self.size, rounding=1.5 * t,
                              wardrobe=self.wardrobe,))
         self.wardrobe.reset()
 

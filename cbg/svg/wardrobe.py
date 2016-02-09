@@ -141,8 +141,16 @@ class Mode():
 
 
 class Wardrobe():
-    '''A set of fonts, colors and other presentation-layer assets.'''
+    '''A set of fonts, colors and other presentation-layer assets.
 
+    The default font size unit here is "px", meaning pixel. According to
+    the SVG standard, the px unit should be treated the same as not
+    specifying a unit, but viewer implementations may vary.
+
+    SVG "px" is not literally pixels. Since CBG is otherwise based on
+    millimetres, "mm" might be preferable, but disturbs baselines.
+
+    '''
     # Commonly overridden in subclasses.
     font_size = None
     modes = {MAIN: Mode()}
@@ -152,7 +160,7 @@ class Wardrobe():
     transformations = list()
 
     # Less commonly overridden.
-    font_size_unit = 'px'  # The effective default in e.g. Eye of GNOME.
+    font_size_unit = 'px'
     line_height_factor = 1.17
     paragraph_break_factor = 0.3
 
