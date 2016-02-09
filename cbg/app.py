@@ -286,7 +286,12 @@ class Application():
     def delete_old_files(self, folder):
         for f in glob.glob('{}/*'.format(folder)):
             logging.debug('Deleting "{}".'.format(f))
-            os.remove(f)
+            try:
+                os.remove(f)
+            except IsADirectoryError:
+                # Directories are permitted to remain, on the assumption
+                # that they are being used to house xlink'd raster graphics.
+                pass
 
     def read_deck_specs(self):
         if self.spec_format == SPEC_FORMAT_YAML:
@@ -402,7 +407,7 @@ class Application():
             logging.error(s.format(self.folder_printing, repr(e)))
             return False
 
-        for svg in sorted(glob.glob('{}/*'.format(self.folder_svg))):
+        for svg in sorted(glob.glob('{}/*.svg'.format(self.folder_svg))):
             logging.debug('Rasterizing {}.'.format(svg))
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
             png = os.path.join(self.folder_printing, png)

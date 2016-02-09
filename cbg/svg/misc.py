@@ -23,6 +23,19 @@ from cbg.svg import svg
 import cbg.misc
 
 
+class Image(svg.SVGElement):
+    '''An embedded image. Not to be confused with the SVG document root.'''
+
+    TAG = 'image'
+
+    @classmethod
+    def new(cls, position, size, content_path, **kwargs):
+        kwargs['x'], kwargs['y'] = cbg.misc.rounded(position)
+        kwargs['width'], kwargs['height'] = cbg.misc.rounded(size)
+        kwargs['{{{}}}href'.format(svg.NAMESPACE_XLINK)] = content_path
+        return super().new(**kwargs)
+
+
 class Text(svg.WardrobeStyledElement):
     '''Printed text content on a card.
 

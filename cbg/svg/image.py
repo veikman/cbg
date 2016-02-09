@@ -38,7 +38,12 @@ from cbg.sample import size
 
 
 class Image(cbg.misc.SearchableTree, svg.SVGElement):
-    '''An SVG image.
+    '''An SVG image document root.
+
+    This class represents a complete SVG image, using the "svg" tag
+    and forming the root element of an SVG XML document. It is not
+    related to the SVG element type tagged "image", which is modelled
+    in cbg.svg.misc.
 
     Implementation detail: Unlike basic SVGElements, an image holds a
     lot of Python state information. In handling images, as per the
@@ -64,7 +69,7 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
         pass
 
     class TooSmall(Exception):
-        '''Card footprint too large for clear image. Layout impossible.'''
+        '''Card footprint too large even for clear image. Layout impossible.'''
         pass
 
     @classmethod
@@ -83,8 +88,11 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
         printing on a page.
 
         '''
-        kwargs['xmlns'] = presenter.NAMESPACE_SVG
-        kwargs['xml'] = presenter.NAMESPACE_XML
+        # Declare namespaces, in the special style of lxml.
+        nsmap = {None: svg.NAMESPACE_SVG,         # Default.
+                 'xlink': svg.NAMESPACE_XLINK,
+                 'xml': svg.NAMESPACE_XML}
+
         kwargs['baseProfile'] = 'full'
         kwargs['version'] = '1.1'
 
@@ -99,10 +107,11 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
         # e.g. not for coordinates to rotate around:
         # "transform=rotate(a,x,y)" <-- real-world don't work for x, y.
         # For this reason, we apply a view box, which equates all
-        # subordinate user-space coordinates to millimetres.
+        # subordinate user-space coordinates (not font sizes) to millimetres.
         kwargs['viewBox'] = ' '.join(map(str, (0, 0, x, y)))
 
-        obj = super().new(children=(cls.Definitions.new(),), **kwargs)
+        obj = super().new(children=(cls.Definitions.new(),), nsmap=nsmap,
+                          **kwargs)
 
         obj.dimensions = geometry.Rectangle(dimensions)
         obj.padding = cbg.misc.Compass(*padding[::-1])

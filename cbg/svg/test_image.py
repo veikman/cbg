@@ -2,9 +2,11 @@
 '''Unit tests for CBG.'''
 
 import unittest
+import logging
 
 import lxml.etree
 
+import cbg.test_misc
 import cbg.svg.card as card
 import cbg.svg.image as image
 import cbg.sample.wardrobe
@@ -47,6 +49,7 @@ class DefsElement(unittest.TestCase):
         self.presenter.define(lxml.etree.Element('e', id='7'))
         self.assertEqual(len(self.image.defs), 1)
 
+    @cbg.test_misc.suppress(logging.ERROR)
     def test_conflict(self):
         self.presenter.define(lxml.etree.Element('e', id='5'))
         self.assertEqual(len(self.image.defs), 1)

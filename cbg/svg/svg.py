@@ -26,6 +26,16 @@ import collections
 import lxml.etree
 
 
+# XML namespace names.
+NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
+NAMESPACE_XLINK = 'http://www.w3.org/1999/xlink'
+NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
+
+# An early draft of CBG used the svgwrite module.
+# The svgwrite module included another namespace by default:
+# ev = 'http://www.w3.org/2001/xml-events'
+
+
 class KeyValuePairs(dict):
     '''A temporary container for building structured SVG strings.'''
 
@@ -135,7 +145,7 @@ class SVGElement(lxml.etree.ElementBase):
 
     @classmethod
     def new(cls, children=None, set_id=False, text=None, tail=None,
-            **attributes):
+            nsmap=None, **attributes):
         '''Create a new instance, configured with convenient logic.
 
         This class method should be called in preference to instantiating
@@ -152,12 +162,14 @@ class SVGElement(lxml.etree.ElementBase):
 
         # lxml can only handle bytes and unicode.
         attributes = {str(k): str(v) for k, v in attributes.items()}
+        # Note that the nsmap argument (lxml's namespace map convenience)
+        # exists here because it must be None or a dict, not a string.
 
         # Suck some arguments into a style attribute.
         cls._filter_arguments('style', cls._keywords_style, attributes)
 
         # Instantiate with the keyword properties of the XML node.
-        instance = cls(**attributes)
+        instance = cls(nsmap=nsmap, **attributes)
 
         # lxml treats internal and trailing content as attributes.
         if text is not None:
@@ -183,8 +195,6 @@ class SVGElement(lxml.etree.ElementBase):
         This is intended primarily to place arguments to new() in the
         SVG "style" attribute without forcing the user to specify that,
         by means of inference from a list of legal style keywords.
-
-        To simplify selective overrides of 
 
         '''
 

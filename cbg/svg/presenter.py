@@ -35,15 +35,6 @@ from cbg.svg import misc
 RECURSION_FRONT = 'presenter_class_front'
 RECURSION_BACK = 'presenter_class_back'
 
-# XML namespace names.
-NAMESPACE_SVG = 'http://www.w3.org/2000/svg'
-NAMESPACE_XML = 'http://www.w3.org/XML/1998/namespace'
-
-# An early draft of CBG used the svgwrite module.
-# The svgwrite module included two more namespaces by default:
-# ev = 'http://www.w3.org/2001/xml-events'
-# xlink = 'http://www.w3.org/1999/xlink'
-
 
 class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
     '''An abstract base class with a set of methods for producing SVG code.
@@ -211,10 +202,21 @@ class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
         # Avoid duplicates by ID, to keep the SVG clean.
         for element in self.defs.iter():
             if element.get('id') == id_:
-                if lxml.etree.tostring(element) == lxml.etree.tostring(xml):
+                # Compare elements.
+                # A previous version of this comparison used etree.tostring
+                # for depth. That was busted by apparent inheritance of the
+                # effective namespace map on lxml's iter().
+
+                if (element.tag == xml.tag and
+                        element.attrib == xml.attrib and
+                        element[:] == xml[:]):
                     logging.debug('Excluding duplicate definition.')
                     return
                 else:
+                    s = 'Existing: {}'.format(lxml.etree.tostring(element))
+                    logging.error(s)
+                    s = 'Proposed: {}'.format(lxml.etree.tostring(xml))
+                    logging.error(s)
                     s = 'Dissimilar definitions with shared ID ({}).'
                     raise ValueError(s.format(id_))
 

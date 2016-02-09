@@ -4,23 +4,9 @@
 import unittest
 import logging
 
+import cbg.test_misc
 import cbg.keys as keys
 import cbg.svg.wardrobe as wr
-
-
-def suppress(logging_level):
-    '''Temporarily silence logging up to the named level.
-
-    This function returns a function-altering function.
-
-    '''
-    def decorator(method):
-        def replacement(instance, *args, **kwargs):
-            logging.disable(logging_level)
-            method(instance, *args, **kwargs)
-            logging.disable(logging.NOTSET)
-        return replacement
-    return decorator
 
 
 class Basics(unittest.TestCase):
@@ -111,7 +97,7 @@ class Color(unittest.TestCase):
 
 class MultiModal(unittest.TestCase):
 
-    @suppress(logging.ERROR)
+    @cbg.test_misc.suppress(logging.ERROR)
     def test_not_found(self):
         with self.assertRaises(KeyError):
             wr.Wardrobe().set_mode(wr.CONTRAST)

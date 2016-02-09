@@ -3,8 +3,24 @@
 
 import unittest
 import numpy
+import logging
 
 import cbg.misc as misc
+
+
+def suppress(logging_level):
+    '''Temporarily silence logging up to the named level.
+
+    This function returns a function-altering function.
+
+    '''
+    def decorator(method):
+        def replacement(instance, *args, **kwargs):
+            logging.disable(logging_level)
+            method(instance, *args, **kwargs)
+            logging.disable(logging.NOTSET)
+        return replacement
+    return decorator
 
 
 class Rounding(unittest.TestCase):
