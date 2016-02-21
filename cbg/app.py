@@ -176,15 +176,24 @@ class Application():
         except:
             return 1
 
+        # Impose additional limits on the combination of CLI arguments.
+
         if self.args.no_fronts and not self.args.backs:
             s = 'Not processing fronts or backs.'
             logging.error(s)
             return 1
-        elif self.args.no_fronts or not self.args.backs:
-            if self.args.duplex or self.args.neighbours:
+
+        if self.args.duplex or self.args.neighbours:
+            if self.args.no_fronts or not self.args.backs:
                 s = 'Option set requires both sides of each card.'
                 logging.error(s)
                 return 1
+            elif self.args.singles:
+                s = 'Option set precludes controlled combination of sides.'
+                logging.error(s)
+                return 1
+
+        # Get to work.
 
         self.delete_old_files(self.folder_svg)
         self.delete_old_files(self.folder_printing)
@@ -224,16 +233,17 @@ class Application():
 
         if self.args.neighbours:
             # Just one round of layouts. Include everything.
-            sides = ((True, True, True, True, True),)
+            sides = ((True, {}),)
         else:
             # Two rounds of layouts.
-            sides = ((not self.args.no_fronts, True, False, True, False),
-                     (self.args.backs, False, True, False, True))
+            sides = ((not self.args.no_fronts,
+                      dict(reverse_on_page=False, insert_back=False)),
+                     (self.args.backs,
+                      dict(obverse_on_page=False, insert_front=False)))
 
-        for requested, obverse, reverse, insert_front, insert_back in sides:
+        for requested, arguments in sides:
             if requested:
-                self.layout(page_queue, obverse, reverse,
-                            insert_front, insert_back)
+                self.layout(page_queue, **arguments)
 
         if self.args.duplex:
             # Alternate between front sheets and back sheets.
@@ -312,13 +322,24 @@ class Application():
 
             yield self.limit_selection(deck_)
 
-    def layout(self, page_queue, obverse_on_page, reverse_on_page,
-               insert_front, insert_back):
-        '''Add to a queue of layed-out pages, full of cards.'''
+    def layout(self, page_queue, obverse_on_page=True, reverse_on_page=True,
+               insert_front=True, insert_back=True):
+        '''Add to a queue of layed-out pages.
 
+        In duplex mode, this method is called once for the obverse of each
+        card, and once for the reverse, with the expectation that the
+        obverse of any card will never appear in an image together with the
+        reverse of any card.
+
+        That restriction does not apply to other modes, so we generally
+        feed pages to the queue as they fill up, and make an exception for
+        duplex mode.
+
+        '''
         assert self.specs
 
-        def new_page(card_size):
+        def new_image(card_size):
+            '''A local function adding a new image to the page queue.'''
             if self.args.singles:
                 # Use card size as image size. Add margins.
                 padding = numpy.array(self.args.margins or (0, 0))
@@ -335,19 +356,25 @@ class Application():
                                               reverse=reverse_on_page))
 
         def insert(cardcopy, presenter_class):
+            '''A local function adding a card to an image.'''
             if not presenter_class:
                 s = '{} has no presenter class for current side.'
-                logging.debug(s.format(cardcopy.__class__.__name__))
+                logging.debug(s.format(cardcopy))
                 return
 
             if (not page_queue or
                     not page_queue[-1].can_fit(presenter_class.size)):
-                new_page(presenter_class.size)
+                new_image(presenter_class.size)
 
             origin = page_queue[-1].free_spot(presenter_class.size)
             presenter = presenter_class.new(cardcopy, origin=origin,
                                             parent=page_queue[-1])
             page_queue[-1].add(presenter_class.size, presenter)
+
+        if self.args.duplex:
+            # Start afresh. Duplex mode excludes singles mode, and therefore no
+            # card size needs to be specified here.
+            new_image(None)
 
         for listing in self.specs.values():
             # The requisite number of copies of each card.
@@ -356,8 +383,6 @@ class Application():
                     insert(cardcopy, cardcopy.presenter_class_front)
                 if insert_back:
                     insert(cardcopy, cardcopy.presenter_class_back)
-
-        return page_queue
 
     def find(self, deck_title):
         return self.specs.get(deck_title)

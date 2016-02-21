@@ -32,7 +32,6 @@ import lxml
 
 import cbg.misc
 from cbg import geometry
-from cbg.svg import presenter
 from cbg.svg import svg
 from cbg.sample import size
 
