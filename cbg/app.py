@@ -27,10 +27,12 @@ import glob
 import logging
 import re
 import subprocess
+import math
 
 import numpy
 
 import cbg.content.deck as deck
+import cbg.svg.transform as transform
 import cbg.svg.image as image
 import cbg.sample.size
 
@@ -142,6 +144,8 @@ class Application():
         group.add_argument('--duplex', help=s, action='store_true')
         s = 'treat both sides of cards similarly'
         group.add_argument('--neighbours', help=s, action='store_true')
+        s = 'draw cards in the shape of a hand fan, for display purposes'
+        group.add_argument('--fan', help=s, action='store_true')
 
         group = parser.add_mutually_exclusive_group()
         s = 'exact image size, in mm'
@@ -149,6 +153,8 @@ class Application():
                            metavar='TUPLE', help=s)
         s = 'give each card its own image'
         group.add_argument('-s', '--singles', action='store_true', help=s)
+        group.add_argument('--arc', metavar='RADIANS', type=float,
+                           default=0, help='the angle cards span in fan mode')
 
         group = parser.add_mutually_exclusive_group()
         group.add_argument('-v', '--verbose', help='extra logging',
@@ -182,6 +188,18 @@ class Application():
             s = 'Not processing fronts or backs.'
             logging.error(s)
             return 1
+
+        if self.args.arc > math.pi:
+            s = 'Arc of fan cannot exceed π radians (180°).'
+            logging.error(s)
+            return 1
+
+        if self.args.arc:
+            # If supplied, the setting implies fan mode.
+            if self.args.duplex or self.args.neighbours:
+                logging.error('Arc supplied in mode incompatible with fan.')
+                return 1
+            self.args.fan = True
 
         if self.args.duplex or self.args.neighbours:
             if self.args.no_fronts or not self.args.backs:
@@ -333,7 +351,82 @@ class Application():
         duplex mode.
 
         '''
-        assert self.specs
+        assert insert_front or insert_back
+
+        try:
+            first_card = next(c for l in self.specs.values() for c in l)
+        except StopIteration:
+            raise ValueError('No cards selected for layouting.')
+
+        if insert_front:
+            first_card_size = first_card.presenter_class_front.size
+        else:
+            first_card_size = first_card.presenter_class_back.size
+
+        # Define a few values that are only relevant in fan mode.
+        # Number each card being layed out. The first one will be 1.
+        n = 0
+        if self.args.fan:
+            n_min = 1
+            n_max = sum(map(len, self.specs.values()))
+            arc = self.args.arc or min((0.15 * (n_max - 1), 1))
+
+            # The radius is based on the height of a card.
+            # The horizontal midpoint of the upper edge of a card is the basis
+            # of calculations below.
+            outer_radius = first_card_size[1] * 3
+            inner_radius = outer_radius - first_card_size[1]
+
+            def n_normal(x):
+                '''Statistical feature scaling for card number x.'''
+                return (x - n_min) / (n_max - n_min)
+
+            def arc_coefficient(x):
+                '''Obtain the coefficient of rotation for card number x.'''
+                try:
+                    return n_normal(x) - 0.5
+                except ZeroDivisionError:
+                    # There's just one card. Don't rotate it.
+                    return 0
+
+            def n_angle(x):
+                '''The angle of rotation for card number x, in radians.'''
+                return arc_coefficient(x) * arc
+
+            def corner_height(x):
+                '''The height in mm of a card corner over the outer arc.'''
+                angle = n_angle(x)
+                corner_over_midpoint = (first_card_size[0] / 2) * math.sin(angle)
+                midpoint_over_pivot = outer_radius * math.cos(angle)
+                return corner_over_midpoint + midpoint_over_pivot - outer_radius
+
+            # The arc segment helps determine the width of the image.
+            # NOTE: This will not have the desired results if arc > π.
+            outer_chord = 2 * outer_radius * math.sin(arc / 2)
+            # The outermost cards extend a little further.
+            chord_margin = (first_card_size[0] / 2) * math.cos(arc / 2)
+
+            # The sagitta of the arc helps determine the height of the image.
+            inner_sagitta = inner_radius * (1 - math.cos(arc / 2))
+            # Again this is extended by the outermost cards.
+            sagitta_margin = (first_card_size[0] / 2) * math.sin(arc / 2)
+            # It's also extended by the tallest corner of any single card,
+            # which can pass above the outer radius.
+            try:
+                radial_margin = max(map(corner_height, range(n_min, n_max)))
+            except ValueError:
+                # Empty range. Just one card.
+                radial_margin = 0
+
+            # We can now determine the center point of the rotation, which
+            # is not inside the image.
+            pivot_x = (outer_chord / 2) + chord_margin
+            pivot_y = outer_radius + radial_margin
+
+            page_queue.append(image.Image.new(dimensions=(outer_chord + 2 * chord_margin,
+                                                          radial_margin + first_card_size[1] + inner_sagitta + sagitta_margin),
+                                              padding=(0, 0),
+                                              name_suffix='fan'))
 
         def new_image(card=None, size=None):
             '''A local function adding a new image to the page queue.'''
@@ -373,10 +466,29 @@ class Application():
                     not page_queue[-1].can_fit(presenter_class.size)):
                 new_image(card=cardcopy, size=presenter_class.size)
 
-            origin = page_queue[-1].free_spot(presenter_class.size)
+            image = page_queue[-1]
+            if self.args.fan:
+                origin = ((image.dimensions[0] - presenter_class.size[0]) / 2,
+                          radial_margin)
+            else:
+                origin = image.free_spot(presenter_class.size)
+
             presenter = presenter_class.new(cardcopy, origin=origin,
-                                            parent=page_queue[-1])
-            page_queue[-1].add(presenter_class.size, presenter)
+                                            parent=image)
+
+            if self.args.fan:
+                # SVG doesn't handle radians.
+                angle = math.degrees(n_angle(n))
+                rotation = transform.Rotate(angle, x=pivot_x, y=pivot_y)
+                presenter.attrib['transform'] = rotation.to_string()
+
+                # Ignore what fits on the page.
+                # Append directly to the image XML object.
+                image.append(presenter)
+
+            else:
+                # Let the image calculate how space will be left.
+                image.add(presenter_class.size, presenter)
 
         if self.args.duplex:
             # Start afresh.
@@ -385,6 +497,7 @@ class Application():
         for listing in self.specs.values():
             # The requisite number of copies of each card.
             for cardcopy in listing:
+                n += 1
                 if insert_front:
                     insert(cardcopy, cardcopy.presenter_class_front)
                 if insert_back:
