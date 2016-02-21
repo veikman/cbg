@@ -27,6 +27,7 @@ page queue for that use case.
 import collections
 import logging
 import os
+import re
 
 import lxml
 
@@ -54,6 +55,8 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
     TAG = 'svg'
 
+    _filename_re = re.compile('[\W_]+')
+
     class Definitions(svg.SVGElement):
         '''An SVG convention.
 
@@ -73,7 +76,7 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
     @classmethod
     def new(cls, dimensions=size.A4, padding=size.A4_MARGINS,
-            left_to_right=True, obverse=None, reverse=None, **kwargs):
+            left_to_right=True, name_suffix=None, **kwargs):
         '''Create an image.
 
         The "padding" flag measures out a margin between the limits of
@@ -83,8 +86,7 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
         The "left_to_right" flag denotes the direction from which cards
         are added. This is normally used to get front (obverse) and
-        back (non-obverse, i.e. reverse) sides matched up for duplex
-        printing on a page.
+        back (reverse) sides matched up for duplex printing on a page.
 
         '''
         # Declare namespaces, in the special style of lxml.
@@ -117,8 +119,13 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
         obj.printable = obj.dimensions - obj.padding.reduction
 
-        obj.obverse = obverse
-        obj.reverse = reverse
+        if name_suffix:
+            # Reduce to lower case.
+            # Delete all characters not matching the set labelled W.
+            obj.name_suffix = cls._filename_re.sub('', name_suffix.lower())
+        else:
+            obj.name_suffix = None
+
         obj.left_to_right = left_to_right
 
         obj.row_heights = []
@@ -195,11 +202,8 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
             if not len(element) and not element.text and not element.attrib:
                 element.getparent().remove(element)
 
-        if self.obverse and not self.reverse:
-            filepath += '_obverse'
-        elif self.reverse and not self.obverse:
-            filepath += '_reverse'
-        # Else both sides of cards are present, or sides are irrelevant.
+        if self.name_suffix:
+            filepath += '_' + self.name_suffix
 
         filepath += '.svg'
 

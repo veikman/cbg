@@ -233,13 +233,11 @@ class Application():
 
         if self.args.neighbours:
             # Just one round of layouts. Include everything.
-            sides = ((True, {}),)
+            sides = ((True, dict()),)
         else:
             # Two rounds of layouts.
-            sides = ((not self.args.no_fronts,
-                      dict(reverse_on_page=False, insert_back=False)),
-                     (self.args.backs,
-                      dict(obverse_on_page=False, insert_front=False)))
+            sides = ((not self.args.no_fronts, dict(insert_back=False)),
+                     (self.args.backs, dict(insert_front=False)))
 
         for requested, arguments in sides:
             if requested:
@@ -322,8 +320,7 @@ class Application():
 
             yield self.limit_selection(deck_)
 
-    def layout(self, page_queue, obverse_on_page=True, reverse_on_page=True,
-               insert_front=True, insert_back=True):
+    def layout(self, page_queue, insert_front=True, insert_back=True):
         '''Add to a queue of layed-out pages.
 
         In duplex mode, this method is called once for the obverse of each
@@ -338,22 +335,32 @@ class Application():
         '''
         assert self.specs
 
-        def new_image(card_size):
+        def new_image(card=None, size=None):
             '''A local function adding a new image to the page queue.'''
             if self.args.singles:
                 # Use card size as image size. Add margins.
                 padding = numpy.array(self.args.margins or (0, 0))
-                dimensions = 2 * padding + card_size
+                dimensions = 2 * padding + size
             else:
                 # Use specified image size. Don't add margins.
                 padding = self.args.margins or cbg.sample.size.A4_MARGINS
                 dimensions = self.args.image_size
 
+            if self.args.singles:
+                name_suffix = str(card)
+            elif self.args.duplex:
+                if insert_front:
+                    name_suffix = 'obverse'
+                elif insert_back:
+                    name_suffix = 'reverse'
+            else:
+                # Both sides of cards may be present, or sides are irrelevant.
+                name_suffix = None
+
             page_queue.append(image.Image.new(dimensions=dimensions,
                                               padding=padding,
                                               left_to_right=insert_front,
-                                              obverse=obverse_on_page,
-                                              reverse=reverse_on_page))
+                                              name_suffix=name_suffix))
 
         def insert(cardcopy, presenter_class):
             '''A local function adding a card to an image.'''
@@ -364,7 +371,7 @@ class Application():
 
             if (not page_queue or
                     not page_queue[-1].can_fit(presenter_class.size)):
-                new_image(presenter_class.size)
+                new_image(card=cardcopy, size=presenter_class.size)
 
             origin = page_queue[-1].free_spot(presenter_class.size)
             presenter = presenter_class.new(cardcopy, origin=origin,
@@ -372,9 +379,8 @@ class Application():
             page_queue[-1].add(presenter_class.size, presenter)
 
         if self.args.duplex:
-            # Start afresh. Duplex mode excludes singles mode, and therefore no
-            # card size needs to be specified here.
-            new_image(None)
+            # Start afresh.
+            new_image()
 
         for listing in self.specs.values():
             # The requisite number of copies of each card.
