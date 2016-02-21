@@ -21,45 +21,62 @@
 
 from cbg.svg import presenter
 from cbg.svg import shapes
+from cbg.svg import wardrobe
+
+
+def default_to_specified_text(method):
+    def replacement(instance, text=None):
+        if text is None:
+            text = str(instance.field)
+        return method(instance, text)
+    return replacement
 
 
 class TagBanner(presenter.SVGPresenter):
-    '''A moderately fancy banner with specified text on top.
+    '''Text atop a rectangular background line built to suit the text.
 
-    Abstract base class. Methods need to be overridden for the choice
-    of wardrobe modes depending on the circumstances.
+    Abstract base class.
 
     Intended primarily for use with tag fields, like those in the tag module.
+    By default, the text is taken directly from the field specification.
 
     '''
 
     def present(self):
-        self._insert_banner_box()
+        self._insert_banner_line()
         self._insert_banner_text()
         self.cursor.slide(self.wardrobe.mode.thickness)
 
-    def _choose_box_mode(self):
+    def _choose_line_mode(self, text):
+        '''Choose a wardrobe mode etc. for the line.
+
+        No assumptions are made here in this superclass because the only
+        truly standard modal key is used in _choose_text_mode().
+
+        '''
         raise NotImplementedError
 
-    def _choose_text_mode(self):
-        raise NotImplementedError
+    def _choose_text_mode(self, text):
+        '''Choose a wardrobe mode etc. for the text.'''
+        self.wardrobe.set_mode(wardrobe.MAIN)
 
-    def _insert_banner_box(self):
+    @default_to_specified_text
+    def _insert_banner_line(self, text):
         '''Draw the graphics.
 
-        If there is text to be drawn, draw a thick line (a box) under it.
+        If there is text to be drawn, draw a thick line under it.
         Otherwise, make the line thin, just the wardrobe's thickness.
 
         '''
-        self._choose_text_mode()
+        self._choose_text_mode(text)
         if self.wardrobe.literate:
-            n_lines = len(self._wrap(str(self.field), '', ''))
+            n_lines = len(self._wrap(text, '', ''))
         else:
             # We assume that a non-text wardrobe was chosen because there is
             # no text to display.
             n_lines = 0
 
-        self._choose_box_mode()
+        self._choose_line_mode(text)
 
         textheight = n_lines * self.wardrobe.line_height
         boxheight = textheight + self.wardrobe.mode.thickness
@@ -78,14 +95,15 @@ class TagBanner(presenter.SVGPresenter):
                                stroke_width=boxheight)
         self.append(line)
 
-    def _insert_banner_text(self):
-        self._choose_box_mode()
+    @default_to_specified_text
+    def _insert_banner_text(self, text):
+        self._choose_line_mode(text)
         if self.field:
             # Add text to the box.
             self.cursor.slide(self.wardrobe.mode.thickness / 2)
-            self._choose_text_mode()
-            self.insert_paragraph(str(self.field))
-            self._choose_box_mode()
+            self._choose_text_mode(text)
+            self.insert_paragraph(text)
+            self._choose_line_mode(text)
             self.cursor.slide(self.wardrobe.mode.thickness / 2)
         else:
             self.cursor.slide(self.wardrobe.mode.thickness)

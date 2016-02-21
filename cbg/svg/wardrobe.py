@@ -199,7 +199,9 @@ class Wardrobe():
     def character_width(self):
         '''A number representing average character width.'''
         if not self.literate:
-            return
+            s = 'Wardrobe was asked for character width while illiterate: {}'
+            raise ValueError(s.format(repr(self)))
+
         return self.font_size * self.mode.character_width_to_height
 
     def horizontal_anchor(self, space, margin=0):
