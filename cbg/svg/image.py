@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
-'''A module for arranging SVG graphics at the top level, as an image.
-
-For printed cards, an image constitutes a page. This module provides a
-page queue for that use case.
-
-'''
+'''A module for arranging SVG graphics at the top level, as an image.'''
 
 # This file is part of CBG.
 #
@@ -24,9 +19,6 @@ page queue for that use case.
 # Copyright 2014-2016 Viktor Eikman
 
 
-import collections
-import logging
-import os
 import re
 
 import lxml
@@ -44,6 +36,9 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
     and forming the root element of an SVG XML document. It is not
     related to the SVG element type tagged "image", which is modelled
     in cbg.svg.misc.
+
+    For the purpose of printing cards, an image constitutes a printable
+    page.
 
     Implementation detail: Unlike basic SVGElements, an image holds a
     lot of Python state information. In handling images, as per the
@@ -209,26 +204,3 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
         with open(filepath, mode='bw') as f:
             f.write(lxml.etree.tostring(self, pretty_print=True))
-
-
-class PageQueue(collections.UserList):
-    '''A list of pages.
-
-    Based on UserList because it can be desirable to change the order
-    of the pages after the queue has been populated, as in the example
-    application's duplex mode.
-
-    '''
-    def __init__(self, title):
-        super().__init__()
-        self.title = title
-
-    def save(self, destination_folder):
-        try:
-            os.mkdir(destination_folder)
-        except OSError:
-            logging.debug('Destination folder already exists.')
-
-        for number, page in enumerate(self):
-            name = '{}_{:03d}'.format(self.title, number + 1)
-            page.save(os.path.join(destination_folder, name))
