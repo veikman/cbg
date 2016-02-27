@@ -36,7 +36,9 @@ class Presentable():
     presenter_class_front = None
     presenter_class_back = None
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
         # Depending on content, it may be desirable to adjust the size
         # an element will take up when presented. As size is normally a
         # property of each presenter class, an override needs to happen
@@ -74,6 +76,13 @@ class DerivedFromSpec():
     # Conveniences for uniquely named items with no proper title:
     _untitled_base = 'untitled'
     _untitled_iterator = itertools.count(start=1)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # A static value to fall back to if none is to be generated quickly
+        # enough for logging.
+        self._generated_title = self._untitled_base
 
     def _generate_title(self):
         '''Create a hitherto unused title. Useful mainly for hash maps.'''

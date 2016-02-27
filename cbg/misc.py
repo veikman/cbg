@@ -46,6 +46,10 @@ class SearchableTree():
                     '''Assume irrelevant, non-searchable content.'''
                     pass
         else:
+            if self.parent is None:
+                s = 'Tree search failed: Reached {}, which has no parent.'
+                raise AttributeError(s.format(type(self)))
+
             return self.parent._search_single(hit_function, down=down)
 
 

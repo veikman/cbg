@@ -155,7 +155,17 @@ class BaseTagField(field.AutoField):
         hence the "selection" argument.
 
         '''
-        return ', '.join(map(str, selection)).capitalize()
+        s = ', '.join(map(str, selection))
+
+        try:
+            i = s[0].upper()
+        except IndexError:
+            return ''
+
+        try:
+            return i + s[1:]
+        except IndexError:
+            return i
 
     def append(self, item):
         '''An override to ensure sorting.

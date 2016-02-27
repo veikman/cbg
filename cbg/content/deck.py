@@ -19,6 +19,7 @@
 # Copyright 2014-2016 Viktor Eikman
 
 
+import logging
 import collections
 import copy
 import itertools
@@ -76,25 +77,24 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
     def _add_card_type(self, card_cls, card_spec, backup_title=None):
         '''Digest a bit of metadata and hand the rest off to the card class.'''
 
-        # Prefer explicit mention of the number of copies.
-        copies = card_spec.get(self.key_metadata, {}).get(self.key_copies)
-
-        if copies is None:
-            copies = self.metadata.get(self.key_defaults,
-                                       {}).get(self.key_copies)
-
         # Discard card-level metadata, if any.
-        card_spec.pop(self.key_metadata, None)
+        card_metadata = card_spec.pop(self.key_metadata, {})
+        deck_defaults = self.metadata.get(self.key_defaults, {})
         card_spec = card_spec.get(self.key_data, card_spec)
 
+        # Add title if it can be inferred from a higher-level mapping key.
         if backup_title and self.key_title not in card_spec:
             card_spec[card_cls.key_title] = backup_title
 
+        # Prefer explicit mention of the number of copies of the card type.
+        copies = card_metadata.get(self.key_copies)
         if copies is None:
-            copies = card_spec.get(self.key_copies)
+            copies = deck_defaults.get(self.key_copies)
+        if copies is None:
+            copies = card_spec.pop(self.key_copies)
             if copies is not None:
-                del card_spec[self.key_copies]
-
+                s = 'Pulled number of copies from data section of specs.'
+                logging.debug(s)
         if copies is None:
             # Not found in the specifications.
             copies = 1

@@ -48,6 +48,10 @@ class Card(elements.DerivedFromSpec, field.Layout):
         '''Put data from incoming raws into empty fields.'''
         self._generated_title = self._generate_title()
 
+        if not self.specification:
+            s = 'No specification data for the "{}" card.'
+            raise self.SpecificationError(s.format(self))
+
         try:
             super().layout()
         except:
@@ -60,11 +64,11 @@ class Card(elements.DerivedFromSpec, field.Layout):
                 s = 'Unrecognized data key "{}" not consumed: "{}".'
                 logging.error(s.format(key, value))
 
-            s = 'Specification for the "{}" card was not consumed.'
-            raise self.SpecificationError(s.format(self.title))
+            s = 'Specification data for the "{}" card was not consumed.'
+            raise self.SpecificationError(s.format(self))
 
     def not_in_spec(self):
-        s = 'Specification of {} inadequate for basic layout.'
+        s = 'Specification of "{}" card inadequate for basic layout.'
         raise self.SpecificationError(s.format(self))
 
     @property
@@ -81,23 +85,14 @@ class Card(elements.DerivedFromSpec, field.Layout):
 
         '''
         try:
-            return str(self.child_by_key_required(self.key_title).content)
+            field = str(self.child_by_key_required(self.key_title))
+            if field:
+                # In spec.
+                return str(field)
         except:
-            return self._generated_title
+            pass
 
-    @property
-    def tags(self):
-        '''Quick access to the card's tags. See the tag module.
-
-        This method will only find a tag field with a key from the
-        standard source, and assumes the existence of such a field.
-        Override it for other arrangements.
-
-        In the basic application model, users can filter cards based
-        on this attribute.
-
-        '''
-        return self.child_by_key_required(self.key_tags)
+        return self._generated_title
 
     def __str__(self):
         return self.title

@@ -63,10 +63,23 @@ class BaseField(cbg.misc.SearchableTree, elements.Presentable):
         ret = self.child_by_key(key)
 
         if ret is None:
-            s = 'No such field {}: {}.'
+            s = 'No such field on "{}": {}.'
             raise KeyError(s.format(self, key))
 
         return ret
+
+    @property
+    def tags(self):
+        '''Search for a tag field on the card. Return it or raise a KeyError.
+
+        In this implementation we rely upon the parent overriding this
+        method.
+
+        In the basic application model, users can filter cards based
+        on this attribute.
+
+        '''
+        return self.parent.tags
 
     @property
     def card(self):
@@ -197,13 +210,24 @@ class Array(BaseField, cbg.geometry.ObjectArray):
 
 
 class Layout(BaseSpecifiableField, List):
-    '''A field structured according to a plan independent of content.'''
+    '''A field structured according to a plan independent of content.
+
+    This field does not consume parts of the spec, merely passing them
+    down to the members of its plan.
+
+    '''
 
     def in_spec(self):
         '''All the work from terse specs to complete contents.'''
+
+        if not self.plan:
+            s = 'No contents planned for {}.'
+            logging.error(s.format(self))
+
         for cls in self.plan:
 
             if cls.key:
+                # Cut out the indicated part of the specification.
                 try:
                     child_spec = self.specification.pop(cls.key, None)
                 except AttributeError:
@@ -214,6 +238,10 @@ class Layout(BaseSpecifiableField, List):
                                            type(self).__name__))
                     raise
             else:
+                # Pass on the entire specification, to be modified by children:
+                # lower-level layout fields etc. It's done this way to enable
+                # easy moving of fields from the top to the bottom of a card
+                # by moving them between different layouters' plans.
                 child_spec = self.specification
 
             try:
@@ -222,6 +250,35 @@ class Layout(BaseSpecifiableField, List):
                 s = 'An error occurred while laying out {}.'
                 logging.error(s.format(cls))
                 raise
+
+    @property
+    def tags(self):
+        '''Find a container with a tags field.
+
+        Return such a field or throw a KeyError.
+
+        A tags field is identified by the standard CBG tags key.
+
+        The reason why this isn't implemented as a simpler method on
+        cards alone is that, in the case of nested Layout fields, a
+        parent container, such as the card, does not obtain a reference
+        to each child container until it is fully instantiated. This
+        makes it possible for a grandchild to call its card looking for
+        a tag field instantiated by an intermediate container (the
+        parent) still under construction. In this example the
+        grandchild will find the card apparently empty. So instead of
+        calling the card, we gradually seek upwards.
+
+        '''
+        def has_tags_field(field):
+            return field.child_by_key(cbg.keys.TAGS) is not None
+
+        field_with_tags = self._search_single(has_tags_field)
+        if field_with_tags is None:
+            s = 'No tag field visible from "{}" looking up the tree.'
+            raise KeyError(s.format(self))
+        else:
+            return field_with_tags.child_by_key_required(cbg.keys.TAGS)
 
 
 class AutoField(_NaturalContainer, List):

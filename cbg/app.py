@@ -355,9 +355,9 @@ class Application():
 
     def delete_old_files(self, folder):
         for f in glob.glob('{}/*'.format(folder)):
-            logging.debug('Deleting "{}".'.format(f))
             try:
                 os.remove(f)
+                logging.debug('Deleted "{}".'.format(f))
             except IsADirectoryError:
                 # Directories are permitted to remain, on the assumption
                 # that they are being used to house xlink'd raster graphics.
