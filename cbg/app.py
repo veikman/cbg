@@ -34,16 +34,6 @@ import cbg.sample.size
 import cbg.layout
 
 
-HELP_SELECT = ('Syntax for card selection: [AMOUNT:][tag=]REGEX',
-               'AMOUNT defaults to no change (whitelist) or zero (blacklist).',
-               'REGEX with "tag=" refers to one card tag, else titles.')
-
-LICENSE = ('This card graphics application was made with the CBG library.',
-           'CBG Copyright 2014-2016 Viktor Eikman',
-           'CBG is free software, and you are welcome to redistribute it',
-           'under the terms of the GNU General Public License.')
-
-
 class Application():
     '''A template for a CBG console application.
 
@@ -52,6 +42,9 @@ class Application():
     is limited. Tested on Ubuntu GNOME with appropriate extras.
 
     '''
+
+    # Default raster resolution is the capacity of an HP LaserJet 1010.
+    default_dpi = 600
 
     class ExternalError(Exception):
         '''Raised when a subprocess cannot be called, or fails.'''
@@ -89,7 +82,15 @@ class Application():
         '''Create, but do not run, a command-line argument parser.'''
 
         d = 'Generate playing card graphics for {}.'.format(self.name_full)
-        e = HELP_SELECT + ('\n',) + LICENSE
+        e = ('Syntax for card selection: [AMOUNT:][tag=]REGEX',
+             'AMOUNT defaults to no change (whitelist) or zero (blacklist).',
+             'REGEX with "tag=" refers to one card tag, else titles.',
+             '',
+             'This card graphics application was made with the CBG library.',
+             'CBG Copyright 2014-2016 Viktor Eikman',
+             'CBG is free software, and you are welcome to redistribute it',
+             'under the terms of the GNU General Public License.')
+
         f = argparse.RawDescriptionHelpFormatter
         parser = argparse.ArgumentParser(description=d, epilog='\n'.join(e),
                                          formatter_class=f)
@@ -159,8 +160,11 @@ class Application():
         product = parser.add_argument_group(title='optional media arguments')
 
         group = product.add_mutually_exclusive_group()
-        group.add_argument('-r', '--rasterize', action='store_true',
-                           help='bitmap output via Inkscape')
+        s = ('bitmap output via Inkscape; the default resolution in dots per '
+             'inch (DPI) is {}').format(self.default_dpi)
+        group.add_argument('-r', '--rasterize', metavar='DPI', nargs='?',
+                           default=False, const=self.default_dpi, type=int,
+                           help=s)
         s = 'produce a document from SVG data, format inferred from filename'
         group.add_argument('--document', metavar='FILENAME', help=s)
 
@@ -190,9 +194,6 @@ class Application():
 
             return value
 
-        # The DPI setting's default value is implemented conditionally, later.
-        product.add_argument('--dpi', metavar='INT', type=nonnegative_int,
-                             help='bitmap resolution, defaults to 600 DPI')
         s = 'paper size for printing, as a string instruction to lp'
         product.add_argument('--print-size', metavar='PAPER_FORMAT',
                              default='A4', help=s)
@@ -261,15 +262,9 @@ class Application():
                 s = 'layouting mode requires both sides of each card'
                 parser.error(s)
 
-        if args.print or args.dpi:
+        if args.print:
             # Rasterization is implied.
-            args.rasterize = True
-
-        if args.dpi is None:
-            # Now that the DPI setting has been checked for implying
-            # rasterization, give it a default value.
-            # The value is based on the author's HP LaserJet 1010's capacity.
-            args.dpi = 600
+            args.rasterize = self.default_dpi
 
         return args
 
@@ -399,7 +394,7 @@ class Application():
             logging.debug('Rasterizing {}.'.format(svg))
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
             png = os.path.join(self.folder_png, png)
-            cmd = ['inkscape', '-e', png, '-d', str(self.args.dpi), svg]
+            cmd = ['inkscape', '-e', png, '-d', str(self.args.rasterize), svg]
             self._external_process(cmd)
 
     def convert_to_pdf(self, filepath):
