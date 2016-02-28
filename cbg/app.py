@@ -60,7 +60,7 @@ class Application():
         The "decks" argument is expected to refer to a dictionary of
         card type classes indexed by file name strings, like this:
 
-        {'example': cbg.card.HumanReadablePlayingCard}
+        {'example': cbg.content.card.Card}
 
         Note there is no path or suffix in the file name string.
 
@@ -114,10 +114,14 @@ class Application():
                            help='less logging')
 
         s = 'do not include the obverse side of cards in layouting'
-        parser.add_argument('--no-fronts', action='store_true', help=s)
+        parser.add_argument('--no-fronts', '--no-obverse',
+                            dest='include_obverse', default=True,
+                            action='store_false', help=s)
         s = ('include the reverse side of cards in layouting; '
              'implicit in duplex and neighbour modes')
-        parser.add_argument('-B', '--backs', action='store_true', help=s)
+        parser.add_argument('-B', '--backs', '--reverse',
+                            dest='include_reverse', default=False,
+                            action='store_true', help=s)
 
         group = parser.add_mutually_exclusive_group()
         s = 'send output to printer through lp (GNU+Linux only)'
@@ -248,12 +252,12 @@ class Application():
 
         args = parser.parse_args()
 
-        if args.no_fronts and not args.backs:
+        if not any((args.include_obverse, args.include_reverse)):
             parser.error('asked to process neither side of cards')
 
         if args.layouting == 'duplex' or args.layouting == 'neighbours':
-            args.backs = True
-            if args.no_fronts:
+            args.include_reverse = True
+            if not args.include_obverse:
                 s = 'layouting mode requires both sides of each card'
                 parser.error(s)
 
@@ -303,7 +307,7 @@ class Application():
                                           image_size=self.args.image_size,
                                           image_margins=self.args.margins,
                                           arc=self.args.arc)
-        layouter.run(not self.args.no_fronts, self.args.backs)
+        layouter.run(self.args.include_obverse, self.args.include_reverse)
         layouter.save(self.folder_svg)
 
         # Consider showing on screen, printing etc.
