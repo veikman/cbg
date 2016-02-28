@@ -71,5 +71,5 @@ class Subclass(unittest.TestCase):
         self.assertEqual(str(c), c._generated_title)
 
     def test_sorting(self):
-        c = self.CardSC({keys.TITLE: 't1'})
-        self.assertEqual(c.sorting_keys, 't1')
+        c = self.CardSC({keys.TITLE: 't1'}, parent='d1')
+        self.assertEqual(c.sorting_keys, ('d1', 't1'))

@@ -76,7 +76,7 @@ class Card(elements.DerivedFromSpec, field.Layout):
     @property
     def sorting_keys(self):
         '''Used by decks to put themselves in order.'''
-        return self.title
+        return str(self.deck), str(self)
 
     @property
     def title(self):
