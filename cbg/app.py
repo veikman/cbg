@@ -125,8 +125,10 @@ class Application():
         group = parser.add_mutually_exclusive_group()
         s = 'send output to printer through lp (GNU+Linux only)'
         group.add_argument('-p', '--print', action='store_true', help=s)
-        group.add_argument('-d', '--display', action='store_true',
-                           help='view output')
+        s = ('call APP to display output; APP should handle a folder name as '
+             'its argument and defaults to eog or evince depending on output')
+        group.add_argument('-d', '--display', metavar='APP',
+                           nargs='?', default=False, const=True, help=s)
 
     def _add_selection_opts(self, parser):
         '''Add deck/card filtering options to an argument parser.'''
@@ -196,12 +198,6 @@ class Application():
         s = 'image margins to the outermost spaces for card(s), in mm'
         product.add_argument('--margins', metavar='TUPLE', type=numeric_2tuple,
                              default=cbg.sample.size.A4_MARGINS, help=s)
-        product.add_argument('--viewer-svg', metavar='APP', default='eog',
-                             help='application used to display SVG images')
-        product.add_argument('--viewer-raster', metavar='APP', default='eog',
-                             help='application used to display bitmap images')
-        product.add_argument('--viewer-doc', metavar='APP', default='evince',
-                             help='application used to display documents')
 
     def _add_layouting_mode_opts(self, parser):
         '''Add layouting options to an argument parser.'''
@@ -329,16 +325,16 @@ class Application():
                 return 1
 
         if self.args.display:
-            # Image viewers are assumed to be able to handle a folder name.
+            viewer = None if self.args.display is True else self.args.display
             if self.args.document:
                 filename = self.args.document
-                viewer = self.args.viewer_doc
+                viewer = viewer or 'evince'
             elif self.args.rasterize:
                 filename = self.folder_png
-                viewer = self.args.viewer_raster
+                viewer = viewer or 'eog'
             else:
                 filename = self.folder_svg
-                viewer = self.args.viewer_svg
+                viewer = viewer or 'eog'
 
             try:
                 subprocess.call([viewer, filename])
