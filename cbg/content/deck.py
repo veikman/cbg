@@ -128,7 +128,7 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
         if copies is None:
             copies = deck_defaults.get(self.key_copies)
         if copies is None:
-            copies = card_spec.pop(self.key_copies)
+            copies = card_spec.pop(self.key_copies, None)
             if copies is not None:
                 s = 'Pulled number of copies from data section of specs.'
                 logging.debug(s)
