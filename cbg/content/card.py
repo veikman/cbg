@@ -46,6 +46,8 @@ class Card(elements.DerivedFromSpec, field.Layout):
 
     def layout(self):
         '''Put data from incoming raws into empty fields.'''
+
+        # Produce a unique title for sorting.
         self._generated_title = self._generate_title()
 
         if not self.specification:
@@ -93,6 +95,11 @@ class Card(elements.DerivedFromSpec, field.Layout):
             pass
 
         return self._generated_title
+
+    @property
+    def card(self):
+        '''An override of a field method.'''
+        return self
 
     def __str__(self):
         return self.title

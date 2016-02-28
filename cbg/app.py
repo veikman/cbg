@@ -43,10 +43,6 @@ LICENSE = ('This card graphics application was made with the CBG library.',
            'CBG is free software, and you are welcome to redistribute it',
            'under the terms of the GNU General Public License.')
 
-SPEC_FORMAT_YAML = 'yaml'
-
-SUPPORTED_SPEC_FORMATS = (SPEC_FORMAT_YAML,)
-
 
 class Application():
     '''A template for a CBG console application.
@@ -57,7 +53,6 @@ class Application():
 
     '''
     def __init__(self, name_full, decks, name_short=None,
-                 spec_format=SPEC_FORMAT_YAML,
                  folder_specs='specs', folder_svg='svg',
                  folder_printing='printing'):
         '''Constructor.
@@ -79,8 +74,6 @@ class Application():
             s = ''.join((w[0].lower() for w in self.name_full.split()))
             self.name_short = s
 
-        assert spec_format in SUPPORTED_SPEC_FORMATS
-        self.spec_format = spec_format
         self.folder_specs = folder_specs
         self.folder_svg = folder_svg
         self.folder_printing = folder_printing
@@ -143,8 +136,12 @@ class Application():
         s = 'card selection whitelist entry (applied before blacklist)'
         selection.add_argument('-w', '--whitelist', metavar='REGEX',
                                default=[], action='append', help=s)
-        s = '1 copy of each card'
-        selection.add_argument('-g', '--gallery', help=s, action='store_true')
+        s = 'maximum 1 copy of each card'
+        selection.add_argument('-g', '--gallery', default=False,
+                               action='store_true', help=s)
+        s = 'maximum 1 card per deck'
+        selection.add_argument('--deck-sample', default=False,
+                               action='store_true', help=s)
 
     def _add_media_opts(self, parser):
         '''Add media options to an argument parser.'''
@@ -290,7 +287,7 @@ class Application():
         # Collect and sieve through deck specifications.
         specs = collections.OrderedDict()
         for deck in sorted(self.read_deck_specs()):
-            # Actual deck objects are not preserved here.
+            # Extract just the cards.
             try:
                 specs[deck.title] = deck.all_sorted()
             except:
@@ -366,58 +363,12 @@ class Application():
     def read_deck_specs(self):
         logging.debug('Reading card deck specifications.')
 
-        if self.spec_format == SPEC_FORMAT_YAML:
-            import yaml
-
         for filename_base, card_cls in self.decks.items():
-            filepath = '{}/{}.{}'.format(self.folder_specs, filename_base,
-                                         self.spec_format)
-
-            with open(filepath, encoding='utf-8') as f:
-                if self.spec_format == SPEC_FORMAT_YAML:
-                    raw = yaml.load(f)
-
-            deck = cbg.content.deck.Deck(card_cls, raw, title=filename_base)
-
-            s = '{} cards in "{}" deck.'
-            logging.debug(s.format(len(deck), deck.title))
-
-            yield self.limit_selection(deck)
-
-    def limit_selection(self, specs):
-        '''Apply selection options.'''
-
-        whitelist_exists = bool(self.args.whitelist)
-
-        for card in specs:
-            whitelisted = False
-            for restriction in self.args.whitelist:
-                n_restricted = self._apply_restriction(restriction, card)
-                if n_restricted is not None:
-                    whitelisted = True
-                    # If negative: No change from default number.
-                    if n_restricted >= 0:
-                        specs[card] = n_restricted
-                    break  # Apply only the first matching white restriction.
-
-            if whitelist_exists and not whitelisted:
-                specs[card] = 0
-
-            for restriction in self.args.blacklist:
-                n_restricted = self._apply_restriction(restriction, card)
-                if n_restricted is not None:
-                    if n_restricted >= 0:
-                        # A not-so-black secondary filter.
-                        specs[card] = n_restricted
-                    else:
-                        # Default behaviour on hit: Blacklisted.
-                        specs[card] = 0
-                    break  # Apply only the first matching black restriction.
-
-            if specs[card] and self.args.gallery:
-                specs[card] = 1
-
-        return specs
+            deck = cbg.content.deck.Deck(card_cls, directory=self.folder_specs,
+                                         filename_base=filename_base)
+            deck.control_selection(self.args.whitelist, self.args.blacklist,
+                                   self.args.gallery, self.args.deck_sample)
+            yield deck
 
     def rasterize(self):
         '''Go from vector graphics to bitmaps using Inkscape.'''
@@ -494,37 +445,3 @@ class Application():
         # margins. Perhaps this can be scripted. Apparently,
         # rasterization in GIMP can be scripted.
         # http://porpoisehead.net/mysw/index.php?pgid=gimp_svg
-
-    def _apply_restriction(self, restriction, card):
-        '''See if a string specifying a restriction applies to a card.
-
-        If there's a hit, return the new number of copies to process.
-        Else return None.
-
-        '''
-        interpreted = re.split('^(\d+):', restriction, maxsplit=1)[1:]
-
-        if len(interpreted) == 2:
-            # The user has supplied a copy count.
-            restricted_copies = int(interpreted[0])
-            regex = interpreted[-1]
-        else:
-            # Do not change the number of copies.
-            restricted_copies = -1
-            regex = restriction
-
-        if regex.startswith('tag='):
-            regex = regex[4:]
-            try:
-                tags = card.tags
-            except AttributeError:
-                # No member of card class named "tags".
-                # This is true of the base class.
-                s = ('Tag-based filtering requires "tags" property.')
-                logging.critical(s)
-                raise
-            if regex in map(str, tags):
-                return restricted_copies
-        else:
-            if re.search(regex, card.title):
-                return restricted_copies

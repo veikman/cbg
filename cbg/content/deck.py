@@ -19,23 +19,36 @@
 # Copyright 2014-2016 Viktor Eikman
 
 
-import logging
 import collections
 import copy
-import itertools
+import logging
+import os
+import re
 
 from cbg.content import elements
+
+
+SPEC_FORMAT_YAML = 'yaml'
+
+SUPPORTED_SPEC_FORMATS = (SPEC_FORMAT_YAML,)
 
 
 class Deck(elements.DerivedFromSpec, collections.Counter):
     '''The right number of copies of every card that belongs in a deck.'''
 
     _untitled_base = 'untitled deck'
-    _untitled_iterator = itertools.count(start=1)
 
-    def __init__(self, card_cls, raw, title=None):
+    def __init__(self, card_cls, raw=None, directory=None, filename_base=None):
         super().__init__()
-        self.title = title
+        self.title = self.filename_base = filename_base
+
+        if raw is None:
+            # Gather data from file.
+            if not directory and self.filename_base:
+                s = 'Data or file path fragments needed to instantiate deck.'
+                raise ValueError(s)
+
+            raw = self._parse_spec_file(directory)
 
         self.metadata = {}
         if isinstance(raw, collections.abc.Mapping):
@@ -55,10 +68,34 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
             raise self.SpecificationError(s.format(type(raw)))
 
         self.title = self.metadata.get(self.key_title, self.title)
-        if self.title is None:
-            self.title = self._generate_title()
-
         self._populate(card_cls, card_specs)
+
+        s = '{} unique card(s) in {} deck.'
+        logging.debug(s.format(len(self), self))
+
+    def _parse_spec_file(self, directory):
+        for spec_format in SUPPORTED_SPEC_FORMATS:
+            filename = '.'.join((self.filename_base, spec_format))
+            filepath = os.path.join(directory, filename)
+            if os.path.exists(filepath):
+                break
+
+        if not os.path.exists(filepath):
+            raise FileNotFoundError('Could not locate {}.'.format(self))
+
+        logging.debug('Reading raw specifications from {}.'.format(filepath))
+
+        if spec_format == SPEC_FORMAT_YAML:
+            import yaml
+
+            def load(open_file):
+                return yaml.load(open_file)
+
+        else:
+            raise Exception('No method of loading {}.'.format(spec_format))
+
+        with open(filepath, encoding='utf-8') as f:
+            return load(f)
 
     def _populate(self, card_cls, card_specs):
         '''Infer the rough data structure of the specification.'''
@@ -99,7 +136,81 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
             # Not found in the specifications.
             copies = 1
 
-        self[card_cls(specification=card_spec)] = copies
+        self[card_cls(specification=card_spec, parent=self)] = copies
+
+    def control_selection(self, whitelist, blacklist, card_max1, deck_max1):
+        whitelist_exists = bool(whitelist)
+        assert isinstance(card_max1, bool)
+        assert isinstance(deck_max1, bool)
+
+        for card in self:
+            whitelisted = False
+            for restriction in whitelist:
+                n_restricted = self._apply_restriction(restriction, card)
+                if n_restricted is not None:
+                    whitelisted = True
+                    # If negative: No change from default number.
+                    if n_restricted >= 0:
+                        self[card] = n_restricted
+                    break  # Apply only the first matching white restriction.
+
+            if whitelist_exists and not whitelisted:
+                self[card] = 0
+
+            for restriction in blacklist:
+                n_restricted = self._apply_restriction(restriction, card)
+                if n_restricted is not None:
+                    if n_restricted >= 0:
+                        # A not-so-black secondary filter.
+                        self[card] = n_restricted
+                    else:
+                        # Default behaviour on hit: Blacklisted.
+                        self[card] = 0
+                    break  # Apply only the first matching black restriction.
+
+            if self[card]:
+                if card_max1:
+                    self[card] = 1
+
+                if deck_max1 is True:
+                    self[card] = 1
+                    deck_max1 = None  # Reuse of flag to store state.
+                elif deck_max1 is None:
+                    self[card] = 0
+
+    def _apply_restriction(self, restriction, card):
+        '''See if a string specifying a restriction applies to a card.
+
+        If there's a hit, return the new number of copies to process.
+        Else return None.
+
+        '''
+        interpreted = re.split('^(\d+):', restriction, maxsplit=1)[1:]
+
+        if len(interpreted) == 2:
+            # The user has supplied a copy count.
+            restricted_copies = int(interpreted[0])
+            regex = interpreted[-1]
+        else:
+            # Do not change the number of copies.
+            restricted_copies = -1
+            regex = restriction
+
+        if regex.startswith('tag='):
+            regex = regex[4:]
+            try:
+                tags = card.tags
+            except AttributeError:
+                # No member of card class named "tags".
+                # This is true of the base class.
+                s = ('Tag-based filtering requires "tags" property.')
+                logging.critical(s)
+                raise
+            if regex in map(str, tags):
+                return restricted_copies
+        else:
+            if re.search(regex, card.title):
+                return restricted_copies
 
     def singles_sorted(self):
         keys = {f.sorting_keys: f for f in self}

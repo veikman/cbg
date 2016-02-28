@@ -36,7 +36,7 @@ class Deck(unittest.TestCase):
 
             plan = (TitleField, OtherField)
 
-        self.deck = deck.Deck(CardSubclass, SPEC)
+        self.deck = deck.Deck(CardSubclass, raw=SPEC)
 
     def test_sorting_singles(self):
         sorted_ = [c.title for c in self.deck.singles_sorted()]

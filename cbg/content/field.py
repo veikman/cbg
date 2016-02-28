@@ -49,6 +49,10 @@ class BaseField(cbg.misc.SearchableTree, elements.Presentable):
         super().__init__()
 
         self.specification = specification
+
+        # In the case of cards, parent is a deck.
+        # In the case of fields directly on a card, parent is the card.
+        # In the case of lower-level fields, parent is the organizing field.
         self.parent = parent
 
         self.layout()
@@ -83,8 +87,13 @@ class BaseField(cbg.misc.SearchableTree, elements.Presentable):
 
     @property
     def card(self):
-        '''Find an ancestor without a parent: presumably a card.'''
-        return self._search_single(lambda f: f.parent is None)
+        '''Find the card of which self is (a part of) a copy.'''
+        return self.parent.card
+
+    @property
+    def deck(self):
+        '''Find the deck of cards which self ultimately belongs to.'''
+        return self.card.parent
 
 
 class Atom(BaseField):
