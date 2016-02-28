@@ -20,62 +20,49 @@
 
 
 import collections
+import itertools
 import logging
 import math
 import os
+import re
 
 import cbg.svg.transform as transform
 from cbg.svg.image import Image
 
 
-class Queue(collections.UserList):
-    '''A list of images.
+class Layouter(collections.UserList):
+    '''A list of images. A manager of the SVG authoring process.
+
+    This could have been an abstract base class, but it turns out
+    to be useful in its simplicity.
 
     Based on UserList because it can be desirable to change the order
     of the images after the queue has been populated, as in the example
     application's duplex mode, implemented in this module.
 
     '''
-    def __init__(self, title):
+
+    def __init__(self, game_title, card_list,
+                 image_size=None, image_margins=None,
+                 side_in_filename=False, card_in_filename=False,
+                 deck_in_filename=False, game_in_filename=True,
+                 filename_suffix='', arc=None):
         super().__init__()
-        self.title = title
-
-    def new_image_arbitrary(self, *args, **kwargs):
-        self.append(Image.new(*args, **kwargs))
-
-    def save(self, destination_folder):
-        try:
-            os.mkdir(destination_folder)
-        except FileExistsError:
-            logging.debug('Destination folder for SVG already exists.')
-
-        for number, image in enumerate(self):
-            name = '{}_{:03d}'.format(self.title, number + 1)
-            image.save(os.path.join(destination_folder, name))
-
-
-class Layouter(Queue):
-    '''A manager of the SVG authoring process.
-
-    This could have been an abstract base class, but it turns out
-    to be useful in its simplicity.
-
-    '''
-
-    def __init__(self, name, card_list, image_size=None, image_margins=None,
-                 arc=None):
-        logging.debug('Instantiating layouter.')
-
-        super().__init__(name)
+        self.game_title = game_title
 
         if not card_list:
             raise ValueError('No cards selected for layouting.')
 
         self.cards = card_list
 
-        # The keyword arguments are not used by all types of layouter.
+        # Not all keyword arguments are used by all types of layouter.
         self.image_size = image_size
         self.image_margins = image_margins
+        self.side_in_filename = side_in_filename
+        self.card_in_filename = card_in_filename
+        self.deck_in_filename = deck_in_filename
+        self.game_in_filename = game_in_filename
+        self.filename_suffix = filename_suffix
         self.arc = arc
 
         # Predict the smallest and largest numbers cards will have.
@@ -84,7 +71,10 @@ class Layouter(Queue):
         self.n_max = len(self.cards)
 
     @classmethod
-    def name_side(self, obverse, reverse):
+    def name_side(self, obverse, reverse=None):
+        if reverse is None:
+            reverse = not obverse
+
         if obverse and reverse:
             raise ValueError('Both sides are not to be named.')
         elif not obverse and not reverse:
@@ -136,7 +126,7 @@ class Layouter(Queue):
             return
 
         if not self or not self[-1].can_fit(presenter_class.size):
-            self.new_image(card_copy, obverse, reverse)
+            self.new_image(card_copy, obverse)
 
         origin = self.get_origin(presenter_class.size)
         image = self[-1]
@@ -144,13 +134,12 @@ class Layouter(Queue):
                                         parent=image)
         self.affix_copy(number, presenter)
 
-    def new_image(self, card, obverse, reverse):
+    def new_image(self, card, include_obverse):
         '''Use image size specifiable via CLI.'''
-        name_suffix = self.get_name_suffix(card, obverse, reverse)
-        self.new_image_arbitrary(dimensions=self.image_size,
-                                 padding=self.image_margins,
-                                 left_to_right=obverse,
-                                 name_suffix=name_suffix)
+        self.append(Image.new(dimensions=self.image_size,
+                              padding=self.image_margins,
+                              left_to_right=include_obverse,
+                              subject=card))
 
     def affix_copy(self, card_number, presenter):
         '''Add one copy of a card to the latest image.'''
@@ -166,9 +155,55 @@ class Layouter(Queue):
     def get_origin(self, card_size):
         return self[-1].free_spot(card_size)
 
-    def get_name_suffix(self, card, obverse, reverse):
-        '''Produce a descriptive addition to the filename of a new image.'''
-        pass
+    def get_filename_function(self):
+        '''Produce a function that takes an image and gives it a filename.'''
+        count_template = '{{:0{}d}}'.format(len(str(len(self))))
+        count = itertools.count(start=1)
+        hard_cleaner = re.compile('[\W_]+')
+        soft_cleaner = re.compile('[\W]+')
+
+        def function(image):
+            filename = count_template.format(next(count))
+
+            def prepend(item):
+                return '_'.join((hard_cleaner.sub('', str(item)), filename))
+
+            def append(item):
+                return '_'.join((filename, hard_cleaner.sub('', str(item))))
+
+            if self.game_in_filename:
+                filename = prepend(self.game_title)
+
+            if self.deck_in_filename:
+                # This also requires images for individual cards.
+                if image.subject:
+                    filename = append(image.subject.deck)
+
+            if self.card_in_filename:
+                # This currently requires images to have been created for
+                # individual cards.
+                if image.subject:
+                    filename = append(image.subject)
+
+            if self.side_in_filename:
+                # Indirect, based on layouting direction.
+                filename = append(self.name_side(image.left_to_right))
+
+            if self.filename_suffix:
+                filename = append(self.filename_suffix)
+
+            # Reduce to lower case.
+            filename = filename.lower()
+
+            # Delete all characters not matching the set labelled W.
+            filename = soft_cleaner.sub('', filename)
+
+            # Append file type.
+            filename = '.'.join((filename, 'svg'))
+
+            return filename
+
+        return function
 
     def n_normal(self, card_number):
         '''Statistical feature scaling for the given card number.
@@ -184,6 +219,14 @@ class Layouter(Queue):
     def sort_images(self):
         '''To be overridden.'''
         pass
+
+    def save(self, destination_folder):
+        filename_function = self.get_filename_function()
+
+        for image in self:
+            name = filename_function(image)
+            filepath = os.path.join(destination_folder, name)
+            image.save(filepath)
 
 
 class Neighbours(Layouter):
@@ -206,10 +249,7 @@ class Duplex(Layouter):
         where the cards have no presenters for the reverse side.
 
         '''
-        self.new_image(None, obverse, reverse)
-
-    def get_name_suffix(self, card, obverse, reverse):
-        return self.name_side(obverse, reverse)
+        self.new_image(None, obverse)
 
     def sort_images(self):
         # Alternate between front sheets and back sheets.
@@ -223,18 +263,17 @@ class Duplex(Layouter):
 class Singles(Layouter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Override keyword argument.
         self.image_margins = (0, 0)
 
-    def get_name_suffix(self, card, obverse, reverse):
-        return str(card)
-
-    def new_image(self, card, obverse, reverse):
+    def new_image(self, card, obverse):
         '''Use card size as image size, individually for each card.'''
         if obverse:
             self.image_size = card.presenter_class_front.size
         else:
             self.image_size = card.presenter_class_back.size
-        super().new_image(card, obverse, reverse)
+        super().new_image(card, obverse)
 
 
 class Fan(Layouter):
@@ -248,6 +287,7 @@ class Fan(Layouter):
 
         '''
         super().__init__(*args, **kwargs)
+        self.filename_suffix = 'fan'
 
         # Override keyword argument.
         self.image_margins = (0, 0)
@@ -307,9 +347,6 @@ class Fan(Layouter):
     def get_origin(self, card_size):
         '''An override. Put every card in the middle, near or at the top.'''
         return ((self.image_size[0] - card_size[0]) / 2, self.radial_margin)
-
-    def get_name_suffix(self, *args):
-        return 'fan'
 
     def affix_copy(self, card_number, presenter):
         '''An override. Rotate each card. Bypass the image's intelligence.'''

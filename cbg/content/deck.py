@@ -228,4 +228,4 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
         return self.title < other.title
 
     def __str__(self):
-        return '<{} deck>'.format(self.title)
+        return str(self.title)

@@ -19,8 +19,6 @@
 # Copyright 2014-2016 Viktor Eikman
 
 
-import re
-
 import lxml
 
 import cbg.misc
@@ -50,8 +48,6 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
     TAG = 'svg'
 
-    _filename_re = re.compile('[\W_]+')
-
     class Definitions(svg.SVGElement):
         '''An SVG convention.
 
@@ -71,7 +67,7 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
     @classmethod
     def new(cls, dimensions=size.A4, padding=size.A4_MARGINS,
-            left_to_right=True, name_suffix=None, **kwargs):
+            left_to_right=True, subject=None, **kwargs):
         '''Create an image.
 
         The "padding" flag measures out a margin between the limits of
@@ -114,14 +110,12 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
 
         obj.printable = obj.dimensions - obj.padding.reduction
 
-        if name_suffix:
-            # Reduce to lower case.
-            # Delete all characters not matching the set labelled W.
-            obj.name_suffix = cls._filename_re.sub('', name_suffix.lower())
-        else:
-            obj.name_suffix = None
-
         obj.left_to_right = left_to_right
+
+        # Images don't generally depict a single card, but when they do,
+        # that card should be available to the function of the layouter
+        # that names the file created to store a complete image.
+        obj.subject = subject
 
         obj.row_heights = []
         obj._new_row()
@@ -190,17 +184,12 @@ class Image(cbg.misc.SearchableTree, svg.SVGElement):
             self.row_size = (self.row_size[0], footprint[1])
 
     def save(self, filepath):
-        '''Prune dud presenters and save SVG code to file.'''
+        '''Prune dud presenters and save SVG code to the named file.'''
         for element in self.iter():
             if element == self:
                 continue
             if not len(element) and not element.text and not element.attrib:
                 element.getparent().remove(element)
-
-        if self.name_suffix:
-            filepath += '_' + self.name_suffix
-
-        filepath += '.svg'
 
         with open(filepath, mode='bw') as f:
             f.write(lxml.etree.tostring(self, pretty_print=True))

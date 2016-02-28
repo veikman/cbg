@@ -136,6 +136,18 @@ class Application():
         group.add_argument('-d', '--display', metavar='APP',
                            nargs='?', default=False, const=True, help=s)
 
+        s = 'include the title of the first depicted card in each filename'
+        parser.add_argument('--card-in-filename', default=False,
+                            action='store_true', help=s)
+        s = 'include the title of the first deck represented in each filename'
+        parser.add_argument('--deck-in-filename', default=False,
+                            action='store_true', help=s)
+        s = 'do not include the title of the game in each filename'
+        parser.add_argument('--no-game-in-filename', dest='game_in_filename',
+                            default=True, action='store_false', help=s)
+        s = 'an arbitrary suffix to each filename'
+        parser.add_argument('--filename-suffix', default='', help=s)
+
     def _add_selection_opts(self, parser):
         '''Add deck/card filtering options to an argument parser.'''
 
@@ -223,28 +235,35 @@ class Application():
 
             return value
 
-        parser.set_defaults(layouter_cls=cbg.layout.Layouter, arc=0)
+        parser.set_defaults(layouter_cls=cbg.layout.Layouter,
+                            side_in_filename=False, arc=0)
         s = 'optional non-standard layouting modes'
         subparsers = parser.add_subparsers(dest='layouting', title=s,
                                            help='each takes its own help flag')
 
-        s = 'alternate between front sheets and back sheets'
+        s = 'Alternate between front sheets and back sheets.'
         duplex = subparsers.add_parser('duplex', description=s)
-        duplex.set_defaults(layouter_cls=cbg.layout.Duplex)
+        duplex.set_defaults(layouter_cls=cbg.layout.Duplex,
+                            side_in_filename=True)
+        s = 'Do not include the word "obverse" or "reverse" in each filename'
+        duplex.add_argument('--no-side-in-filename', dest='side_in-filename',
+                            default=True, action='store_false', help=s)
 
-        s = 'treat both sides of cards similarly'
+        s = 'Treat both sides of cards similarly.'
         neighbours = subparsers.add_parser('neighbours', description=s)
         neighbours.set_defaults(layouter_cls=cbg.layout.Neighbours)
 
-        s = 'draw cards in the shape of a hand fan, for display purposes'
+        s = 'Draw cards in the shape of a hand fan, for display purposes.'
         fan = subparsers.add_parser('fan', description=s)
-        fan.set_defaults(layouter_cls=cbg.layout.Fan)
+        fan.set_defaults(layouter_cls=cbg.layout.Fan,
+                         filename_suffix='fan')
         fan.add_argument('--arc', metavar='RADIANS', type=arc,
                          default=0, help='the angle the cards will span')
 
-        s = 'give each card its own image'
+        s = 'Give each card its own image.'
         singles = subparsers.add_parser('singles', description=s)
-        singles.set_defaults(layouter_cls=cbg.layout.Singles)
+        singles.set_defaults(layouter_cls=cbg.layout.Singles,
+                             card_in_filename=True)
 
         return parser
 
@@ -297,13 +316,8 @@ class Application():
         # Flatten specifications to a single list of cards for layouting.
         cards = [card for listing in specs.values() for card in listing]
 
-        # Compose SVG images and save them.
-        layouter = self.args.layouter_cls(self.name_short, cards,
-                                          image_size=self.args.image_size,
-                                          image_margins=self.args.margins,
-                                          arc=self.args.arc)
-        layouter.run(self.args.include_obverse, self.args.include_reverse)
-        layouter.save(self.folder_svg)
+        # Produce SVG.
+        self.vectorize(cards)
 
         # Treat saved SVG and exit application appropriately.
         try:
@@ -380,10 +394,32 @@ class Application():
                                    self.args.gallery, self.args.deck_sample)
             yield deck
 
+    def vectorize(self, cards):
+        '''Compose SVG images and save them.'''
+
+        logging.debug('Producing vector graphics.')
+
+        try:
+            os.mkdir(self.folder_svg)
+        except FileExistsError:
+            logging.debug('Destination folder for SVG already exists.')
+
+        kwargs = dict(image_size=self.args.image_size,
+                      image_margins=self.args.margins,
+                      side_in_filename=self.args.side_in_filename,
+                      card_in_filename=self.args.card_in_filename,
+                      deck_in_filename=self.args.deck_in_filename,
+                      game_in_filename=self.args.game_in_filename,
+                      filename_suffix=self.args.filename_suffix,
+                      arc=self.args.arc)
+        layouter = self.args.layouter_cls(self.name_short, cards, **kwargs)
+        layouter.run(self.args.include_obverse, self.args.include_reverse)
+        layouter.save(self.folder_svg)
+
     def rasterize(self):
         '''Go from vector graphics to bitmaps using Inkscape.'''
 
-        logging.debug('Rasterizing.')
+        logging.debug('Producing raster graphics.')
 
         try:
             os.mkdir(self.folder_png)
