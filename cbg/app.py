@@ -53,8 +53,7 @@ class Application():
 
     '''
     def __init__(self, name_full, decks, name_short=None,
-                 folder_specs='specs', folder_svg='svg',
-                 folder_printing='printing'):
+                 folder_specs='specs', folder_svg='svg', folder_png='png'):
         '''Constructor.
 
         The "decks" argument is expected to refer to a dictionary of
@@ -76,7 +75,7 @@ class Application():
 
         self.folder_specs = folder_specs
         self.folder_svg = folder_svg
-        self.folder_printing = folder_printing
+        self.folder_png = folder_png
 
         self.args = self.check_cli(self.make_cli())
         self.configure_logging()
@@ -286,7 +285,7 @@ class Application():
     def execute(self):
         # Clean up after previous runs.
         self.delete_old_files(self.folder_svg)
-        self.delete_old_files(self.folder_printing)
+        self.delete_old_files(self.folder_png)
 
         # Collect and sieve through deck specifications.
         specs = collections.OrderedDict()
@@ -335,7 +334,7 @@ class Application():
                 filename = self.args.document
                 viewer = self.args.viewer_doc
             elif self.args.rasterize:
-                filename = self.folder_printing
+                filename = self.folder_png
                 viewer = self.args.viewer_raster
             else:
                 filename = self.folder_svg
@@ -380,18 +379,18 @@ class Application():
         logging.debug('Rasterizing.')
 
         try:
-            os.mkdir(self.folder_printing)
+            os.mkdir(self.folder_png)
         except FileExistsError:
             pass
         except Exception as e:
-            s = 'Unable to create specified bitmap/printing directory "{}": {}'
-            logging.error(s.format(self.folder_printing, repr(e)))
+            s = 'Unable to create specified directory "{}": {}'
+            logging.error(s.format(self.folder_png, repr(e)))
             return False
 
         for svg in self.all_svg_filepaths():
             logging.debug('Rasterizing {}.'.format(svg))
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
-            png = os.path.join(self.folder_printing, png)
+            png = os.path.join(self.folder_png, png)
             cmd = ['inkscape', '-e', png, '-d', str(self.args.dpi), svg]
             try:
                 subprocess.check_call(cmd)
@@ -426,7 +425,7 @@ class Application():
 
         logging.debug('Printing.')
 
-        for png in sorted(glob.glob('{}/*'.format(self.folder_printing))):
+        for png in sorted(glob.glob('{}/*'.format(self.folder_png))):
             subprocess.check_call(['lp', '-o',
                                    'media={}'.format(self.args.print_size),
                                    png])
