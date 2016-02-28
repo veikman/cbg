@@ -52,6 +52,11 @@ class Application():
     is limited. Tested on Ubuntu GNOME with appropriate extras.
 
     '''
+
+    class ExternalError(Exception):
+        '''Raised when a subprocess cannot be called, or fails.'''
+        pass
+
     def __init__(self, name_full, decks, name_short=None,
                  folder_specs='specs', folder_svg='svg', folder_png='png'):
         '''Constructor.
@@ -305,16 +310,22 @@ class Application():
         layouter.run(self.args.include_obverse, self.args.include_reverse)
         layouter.save(self.folder_svg)
 
-        # Consider showing on screen, printing etc.
-        return self._output()
+        # Treat saved SVG and exit application appropriately.
+        try:
+            return self._output()
+        except self.ExternalError as e:
+            logging.error(str(e))
+            return 1
 
     def _output(self):
-        '''Treat saved SVG.'''
+        '''Consider showing on screen, printing etc.
+
+        Return an exit status: 0 if successful, else a positive integer.
+
+        '''
 
         if self.args.rasterize:
-            if not self.rasterize():
-                return 1
-
+            self.rasterize()
         elif self.args.document:
             filepath = self.args.document
             if filepath.lower().endswith('.pdf'):
@@ -335,22 +346,27 @@ class Application():
             else:
                 filename = self.folder_svg
                 viewer = viewer or 'eog'
+            self._external_process([viewer, filename])
 
-            try:
-                subprocess.call([viewer, filename])
-            except FileNotFoundError:
-                logging.error('Viewer not found: "{}".'.format(viewer))
-                s = 'Please name an installed viewer with a CLI flag.'
-                logging.info(s)
-                return 1
-
-        elif self.args.print:
+        if self.args.print:
             self.print_output()
 
         return 0
 
+    def _external_process(self, cmd):
+        try:
+            subprocess.check_call(cmd)
+        except FileNotFoundError:
+            s = 'External application "{}" not found.'
+            raise self.ExternalError(s.format(cmd[0]))
+        except subprocess.CalledProcessError as e:
+            logging.debug('Call {} failed.'.format(cmd))
+            s = 'External application "{}" terminated with error: {}.'
+            raise self.ExternalError(s.format(cmd[0], e.returncode))
+
     def delete_old_files(self, folder):
-        for f in glob.glob('{}/*'.format(folder)):
+        '''Use globbing to get a valid relative path.'''
+        for f in glob.glob(folder + '/*'):
             try:
                 os.remove(f)
                 logging.debug('Deleted "{}".'.format(f))
@@ -360,7 +376,7 @@ class Application():
                 pass
 
     def read_deck_specs(self):
-        logging.debug('Reading card deck specifications.')
+        logging.debug('Reading specifications.')
 
         for filename_base, card_cls in self.decks.items():
             deck = cbg.content.deck.Deck(card_cls, directory=self.folder_specs,
@@ -377,36 +393,23 @@ class Application():
         try:
             os.mkdir(self.folder_png)
         except FileExistsError:
-            pass
-        except Exception as e:
-            s = 'Unable to create specified directory "{}": {}'
-            logging.error(s.format(self.folder_png, repr(e)))
-            return False
+            logging.debug('Destination folder for PNG already exists.')
 
         for svg in self.all_svg_filepaths():
             logging.debug('Rasterizing {}.'.format(svg))
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
             png = os.path.join(self.folder_png, png)
             cmd = ['inkscape', '-e', png, '-d', str(self.args.dpi), svg]
-            try:
-                subprocess.check_call(cmd)
-            except subprocess.CalledProcessError:
-                return False
-
-        return True
+            self._external_process(cmd)
 
     def convert_to_pdf(self, filepath):
         '''Author a PDF with librsvg.'''
 
-        logging.debug('Writing PDF.')
+        logging.debug('Authoring PDF.')
 
         command = ['rsvg-convert', '-f', 'pdf', '-o', filepath]
         command.extend(self.all_svg_filepaths())
-        try:
-            subprocess.call(command)
-        except FileNotFoundError:
-            s = 'Missing utility for concatenation: {}.'
-            logging.error(s.format(command[0]))
+        self._external_process(command)
 
     def all_svg_filepaths(self):
         return sorted(glob.glob('{}/*.svg'.format(self.folder_svg)))
@@ -422,9 +425,8 @@ class Application():
         logging.debug('Printing.')
 
         for png in sorted(glob.glob('{}/*'.format(self.folder_png))):
-            subprocess.check_call(['lp', '-o',
-                                   'media={}'.format(self.args.print_size),
-                                   png])
+            cmd = (['lp', '-o', 'media={}'.format(self.args.print_size), png])
+            self._external_process(cmd)
 
         # Not sure the above operation gets the scale exactly right!
         # lp seems to like printing PNGs to fill the page.

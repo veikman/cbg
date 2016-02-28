@@ -46,8 +46,8 @@ class Queue(collections.UserList):
     def save(self, destination_folder):
         try:
             os.mkdir(destination_folder)
-        except OSError:
-            logging.debug('Destination folder already exists.')
+        except FileExistsError:
+            logging.debug('Destination folder for SVG already exists.')
 
         for number, image in enumerate(self):
             name = '{}_{:03d}'.format(self.title, number + 1)
