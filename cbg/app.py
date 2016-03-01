@@ -133,8 +133,8 @@ class Application():
         group.add_argument('-p', '--print', action='store_true', help=s)
         s = ('call APP to display output; APP should handle a folder name as '
              'its argument and defaults to eog or evince depending on output')
-        group.add_argument('-d', '--display', metavar='APP',
-                           nargs='?', default=False, const=True, help=s)
+        group.add_argument('-d', '--display', metavar='APP', nargs='?',
+                           const='', help=s)
 
         s = 'include the title of the first depicted card in each filename'
         parser.add_argument('--card-in-filename', default=False,
@@ -171,15 +171,6 @@ class Application():
 
         product = parser.add_argument_group(title='optional media arguments')
 
-        group = product.add_mutually_exclusive_group()
-        s = ('bitmap output via Inkscape; the default resolution in dots per '
-             'inch (DPI) is {}').format(self.default_dpi)
-        group.add_argument('-r', '--rasterize', metavar='DPI', nargs='?',
-                           default=False, const=self.default_dpi, type=int,
-                           help=s)
-        s = 'produce a document from SVG data, format inferred from filename'
-        group.add_argument('--document', metavar='FILENAME', help=s)
-
         def nonnegative_int(value):
             '''Type-checking function for argparse.'''
             value = int(value)
@@ -187,6 +178,15 @@ class Application():
                 s = 'not a non-negative integer: {}'.format(value)
                 raise argparse.ArgumentTypeError(s)
             return value
+
+        group = product.add_mutually_exclusive_group()
+        s = ('bitmap output via Inkscape; the default resolution in dots per '
+             'inch (DPI) is {}').format(self.default_dpi)
+        group.add_argument('-r', '--rasterize', metavar='DPI', nargs='?',
+                           const=self.default_dpi, type=nonnegative_int,
+                           help=s)
+        s = 'produce a document from SVG data, format inferred from filename'
+        group.add_argument('--document', metavar='FILENAME', help=s)
 
         def numeric_2tuple(value):
             '''Type-checking function for argparse.'''
@@ -245,7 +245,7 @@ class Application():
         duplex = subparsers.add_parser('duplex', description=s)
         duplex.set_defaults(layouter_cls=cbg.layout.Duplex,
                             side_in_filename=True)
-        s = 'Do not include the word "obverse" or "reverse" in each filename'
+        s = 'Do not include the word "obverse" or "reverse" in each filename.'
         duplex.add_argument('--no-side-in-filename', dest='side_in-filename',
                             default=True, action='store_false', help=s)
 
@@ -333,7 +333,7 @@ class Application():
 
         '''
 
-        if self.args.rasterize:
+        if self.args.rasterize is not None:
             self.rasterize()
         elif self.args.document:
             filepath = self.args.document
@@ -344,17 +344,16 @@ class Application():
                 logging.error(s)
                 return 1
 
-        if self.args.display:
-            viewer = None if self.args.display is True else self.args.display
+        if self.args.display is not None:
             if self.args.document:
                 filename = self.args.document
-                viewer = viewer or 'evince'
+                viewer = self.args.display or 'evince'
             elif self.args.rasterize:
                 filename = self.folder_png
-                viewer = viewer or 'eog'
+                viewer = self.args.display or 'eog'
             else:
                 filename = self.folder_svg
-                viewer = viewer or 'eog'
+                viewer = self.args.display or 'eog'
             self._external_process([viewer, filename])
 
         if self.args.print:
@@ -421,6 +420,8 @@ class Application():
 
         logging.debug('Producing raster graphics.')
 
+        dpi = self.args.rasterize or self.default_dpi
+
         try:
             os.mkdir(self.folder_png)
         except FileExistsError:
@@ -430,7 +431,7 @@ class Application():
             logging.debug('Rasterizing {}.'.format(svg))
             png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
             png = os.path.join(self.folder_png, png)
-            cmd = ['inkscape', '-e', png, '-d', str(self.args.rasterize), svg]
+            cmd = ['inkscape', '-e', png, '-d', str(dpi), svg]
             self._external_process(cmd)
 
     def convert_to_pdf(self, filepath):
