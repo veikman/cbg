@@ -220,12 +220,25 @@ class Layouter(collections.UserList):
         '''To be overridden.'''
         pass
 
-    def save(self, destination_folder):
+    def with_filenames(self):
+        '''A generator.
+
+        Intended for use in the secondary presentation of graphics with
+        captions derived from card objects. This is currently meaningful
+        only in the case of one image per card, where the card is stored
+        as the subject of the image.
+
+        '''
         filename_function = self.get_filename_function()
 
         for image in self:
-            name = filename_function(image)
-            filepath = os.path.join(destination_folder, name)
+            filename = filename_function(image)
+            yield image, filename
+
+    def save(self, destination_folder):
+        '''Save all images to named folder.'''
+        for image, filename in self.with_filenames():
+            filepath = os.path.join(destination_folder, filename)
             image.save(filepath)
 
 
