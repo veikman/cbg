@@ -80,9 +80,8 @@ class DerivedFromSpec():
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # A static value to fall back to if none is to be generated quickly
-        # enough for logging.
-        self._generated_title = self._untitled_base
+        # Produce a unique title for cards etc.
+        self._generated_title = self._generate_title()
 
     def _generate_title(self):
         '''Create a hitherto unused title. Useful mainly for hash maps.'''

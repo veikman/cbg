@@ -47,9 +47,6 @@ class Card(elements.DerivedFromSpec, field.Layout):
     def layout(self):
         '''Put data from incoming raws into empty fields.'''
 
-        # Produce a unique title for sorting.
-        self._generated_title = self._generate_title()
-
         if not self.specification:
             s = 'No specification data for the "{}" card.'
             raise self.SpecificationError(s.format(self))
@@ -94,7 +91,10 @@ class Card(elements.DerivedFromSpec, field.Layout):
         except:
             pass
 
-        return self._generated_title
+        try:
+            return self._generated_title
+        except AttributeError:
+            return self._untitled_base
 
     @property
     def card(self):

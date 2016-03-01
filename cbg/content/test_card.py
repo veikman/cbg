@@ -62,7 +62,8 @@ class Subclass(unittest.TestCase):
 
     def test_creation_without_title_field(self):
         c = self.CardSC({OTHER: 'different again'})
-        self.assertEqual(c._generated_title, 'untitled card')
+        self.assertTrue(c._generated_title.startswith('untitled card'))
+        self.assertNotEqual(c._generated_title, 'untitled card')
 
         # When not in spec, a text field defaults to an empty list
         # (of paragraphs).
