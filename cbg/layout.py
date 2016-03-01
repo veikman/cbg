@@ -30,48 +30,36 @@ import cbg.svg.transform as transform
 from cbg.svg.image import Image
 
 
-class Layouter(collections.UserList):
-    '''A list of images. A manager of the SVG authoring process.
+class Namer():
+    '''A class that comes up with names for image files.'''
 
-    This could have been an abstract base class, but it turns out
-    to be useful in its simplicity.
+    def __init__(self, side=False, card=False, deck=False,
+                 game='', suffix='', count_max=999):
+        '''Initialize.
 
-    Based on UserList because it can be desirable to change the order
-    of the images after the queue has been populated, as in the example
-    application's duplex mode, implemented in this module.
+        The Boolean keyword arguments refer to whether or not to include
+        each piece of information gleaned from a card. The keyword
+        arguments with string defaults will be included if non-empty.
 
-    '''
+        '''
+        self._side = side
+        self._card = card
+        self._deck = deck
+        self._game = game
+        self._suffix = suffix
 
-    def __init__(self, game_title, card_list,
-                 image_size=None, image_margins=None,
-                 side_in_filename=False, card_in_filename=False,
-                 deck_in_filename=False, game_in_filename=True,
-                 filename_suffix='', arc=None):
-        super().__init__()
-        self.game_title = game_title
+        # count_max is only used to format the only mandatory text field.
+        self._count_template = '{{:0{}d}}'.format(len(str(count_max)))
+        self._count = itertools.count(start=1)
 
-        if not card_list:
-            raise ValueError('No cards selected for layouting.')
-
-        self.cards = card_list
-
-        # Not all keyword arguments are used by all types of layouter.
-        self.image_size = image_size
-        self.image_margins = image_margins
-        self.side_in_filename = side_in_filename
-        self.card_in_filename = card_in_filename
-        self.deck_in_filename = deck_in_filename
-        self.game_in_filename = game_in_filename
-        self.filename_suffix = filename_suffix
-        self.arc = arc
-
-        # Predict the smallest and largest numbers cards will have.
-        # This informaton can be used by subclasses, for a progress bar etc.
-        self.n_min = 1
-        self.n_max = len(self.cards)
+        # Prepare to delete characters not matching the set labelled W.
+        self._hard_cleaner = re.compile('[\W_]+')
+        self._soft_cleaner = re.compile('[\W]+')
 
     @classmethod
     def name_side(self, obverse, reverse=None):
+        '''Return a string based on supplied Booleans.'''
+
         if reverse is None:
             reverse = not obverse
 
@@ -84,6 +72,79 @@ class Layouter(collections.UserList):
             return 'obverse'
         elif reverse:
             return 'reverse'
+
+    def name_image(self, image):
+        '''Return a string based on supplied SVG image object.'''
+
+        filename = self._count_template.format(next(self._count))
+
+        def prepend(item):
+            return '_'.join((self._hard_cleaner.sub('', str(item)), filename))
+
+        def append(item):
+            return '_'.join((filename, self._hard_cleaner.sub('', str(item))))
+
+        if self._game:
+            filename = prepend(self._game)
+
+        if self._deck:
+            # This also requires images for individual cards.
+            if image.subject:
+                filename = append(image.subject.deck)
+
+        if self._card:
+            # This currently requires images to have been created for
+            # individual cards.
+            if image.subject:
+                filename = append(image.subject)
+
+        if self._side:
+            # Indirect, based on layouting direction.
+            filename = append(self.name_side(image.left_to_right))
+
+        if self._suffix:
+            filename = append(self._suffix)
+
+        # Clean.
+        filename = filename.lower()
+        filename = self._soft_cleaner.sub('', filename)
+
+        # Append file type.
+        filename = '.'.join((filename, 'svg'))
+
+        return filename
+
+
+class Layouter(collections.UserList):
+    '''A list of images. A manager of the SVG authoring process.
+
+    This could have been an abstract base class, but it turns out
+    to be useful in its simplicity.
+
+    Based on UserList because it can be desirable to change the order
+    of the images after the queue has been populated, as in the example
+    application's duplex mode, implemented in this module.
+
+    '''
+
+    def __init__(self, card_list, image_size=None, image_margins=None,
+                 arc=None):
+        super().__init__()
+
+        if not card_list:
+            raise ValueError('No cards selected for layouting.')
+
+        self.cards = card_list
+
+        # Not all keyword arguments are used by all types of layouter.
+        self.image_size = image_size
+        self.image_margins = image_margins
+        self.arc = arc
+
+        # Predict the smallest and largest numbers cards will have.
+        # This informaton can be used by subclasses, for a progress bar etc.
+        self.n_min = 1
+        self.n_max = len(self.cards)
 
     def run(self, include_obverse, include_reverse):
         '''All the work from layouts to saving the resulting image queue.'''
@@ -122,7 +183,7 @@ class Layouter(collections.UserList):
         if not presenter_class:
             s = '{} has no presenter class for the {} side.'
             logging.debug(s.format(card_copy,
-                                   self.name_side(obverse, reverse)))
+                                   Namer.name_side(obverse, reverse)))
             return
 
         if not self or not self[-1].can_fit(presenter_class.size):
@@ -155,56 +216,6 @@ class Layouter(collections.UserList):
     def get_origin(self, card_size):
         return self[-1].free_spot(card_size)
 
-    def get_filename_function(self):
-        '''Produce a function that takes an image and gives it a filename.'''
-        count_template = '{{:0{}d}}'.format(len(str(len(self))))
-        count = itertools.count(start=1)
-        hard_cleaner = re.compile('[\W_]+')
-        soft_cleaner = re.compile('[\W]+')
-
-        def function(image):
-            filename = count_template.format(next(count))
-
-            def prepend(item):
-                return '_'.join((hard_cleaner.sub('', str(item)), filename))
-
-            def append(item):
-                return '_'.join((filename, hard_cleaner.sub('', str(item))))
-
-            if self.game_in_filename:
-                filename = prepend(self.game_title)
-
-            if self.deck_in_filename:
-                # This also requires images for individual cards.
-                if image.subject:
-                    filename = append(image.subject.deck)
-
-            if self.card_in_filename:
-                # This currently requires images to have been created for
-                # individual cards.
-                if image.subject:
-                    filename = append(image.subject)
-
-            if self.side_in_filename:
-                # Indirect, based on layouting direction.
-                filename = append(self.name_side(image.left_to_right))
-
-            if self.filename_suffix:
-                filename = append(self.filename_suffix)
-
-            # Reduce to lower case.
-            filename = filename.lower()
-
-            # Delete all characters not matching the set labelled W.
-            filename = soft_cleaner.sub('', filename)
-
-            # Append file type.
-            filename = '.'.join((filename, 'svg'))
-
-            return filename
-
-        return function
-
     def n_normal(self, card_number):
         '''Statistical feature scaling for the given card number.
 
@@ -220,7 +231,7 @@ class Layouter(collections.UserList):
         '''To be overridden.'''
         pass
 
-    def with_filenames(self):
+    def with_filenames(self, **kwargs):
         '''A generator.
 
         Intended for use in the secondary presentation of graphics with
@@ -229,15 +240,15 @@ class Layouter(collections.UserList):
         as the subject of the image.
 
         '''
-        filename_function = self.get_filename_function()
-
+        kwargs.setdefault('count_max', len(self))
+        namer = Namer(**kwargs)
         for image in self:
-            filename = filename_function(image)
+            filename = namer.name_image(image)
             yield image, filename
 
-    def save(self, destination_folder):
+    def save(self, destination_folder, **kwargs):
         '''Save all images to named folder.'''
-        for image, filename in self.with_filenames():
+        for image, filename in self.with_filenames(**kwargs):
             filepath = os.path.join(destination_folder, filename)
             image.save(filepath)
 
@@ -272,6 +283,11 @@ class Duplex(Layouter):
             tmp.extend(pair)
         self.data = tmp
 
+    def with_filenames(self, **kwargs):
+        '''An override.'''
+        kwargs.setdefault('side', True)
+        return super().with_filenames(**kwargs)
+
 
 class Singles(Layouter):
     def __init__(self, *args, **kwargs):
@@ -288,6 +304,11 @@ class Singles(Layouter):
             self.image_size = card.presenter_class_back.size
         super().new_image(card, obverse)
 
+    def with_filenames(self, **kwargs):
+        '''An override.'''
+        kwargs.setdefault('card', True)
+        return super().with_filenames(**kwargs)
+
 
 class Fan(Layouter):
 
@@ -300,7 +321,6 @@ class Fan(Layouter):
 
         '''
         super().__init__(*args, **kwargs)
-        self.filename_suffix = 'fan'
 
         # Override keyword argument.
         self.image_margins = (0, 0)
@@ -357,6 +377,10 @@ class Fan(Layouter):
                            sum((self.radial_margin, cy, inner_sagitta,
                                 sagitta_margin)))
 
+    def _n_angle(self, card_number):
+        '''The angle of rotation for card number n, in radians.'''
+        return (self.n_normal(card_number) - 0.5) * self.arc
+
     def get_origin(self, card_size):
         '''An override. Put every card in the middle, near or at the top.'''
         return ((self.image_size[0] - card_size[0]) / 2, self.radial_margin)
@@ -373,6 +397,7 @@ class Fan(Layouter):
         # Append directly to the image XML object.
         self[-1].append(presenter)
 
-    def _n_angle(self, card_number):
-        '''The angle of rotation for card number n, in radians.'''
-        return (self.n_normal(card_number) - 0.5) * self.arc
+    def with_filenames(self, **kwargs):
+        '''An override.'''
+        kwargs['suffix'] = kwargs.get('suffix') or 'fan'
+        return super().with_filenames(**kwargs)

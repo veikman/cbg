@@ -255,8 +255,7 @@ class Application():
 
         s = 'Draw cards in the shape of a hand fan, for display purposes.'
         fan = subparsers.add_parser('fan', description=s)
-        fan.set_defaults(layouter_cls=cbg.layout.Fan,
-                         filename_suffix='fan')
+        fan.set_defaults(layouter_cls=cbg.layout.Fan)
         fan.add_argument('--arc', metavar='RADIANS', type=arc,
                          default=0, help='the angle the cards will span')
 
@@ -403,17 +402,18 @@ class Application():
         except FileExistsError:
             logging.debug('Destination folder for SVG already exists.')
 
-        kwargs = dict(image_size=self.args.image_size,
-                      image_margins=self.args.margins,
-                      side_in_filename=self.args.side_in_filename,
-                      card_in_filename=self.args.card_in_filename,
-                      deck_in_filename=self.args.deck_in_filename,
-                      game_in_filename=self.args.game_in_filename,
-                      filename_suffix=self.args.filename_suffix,
-                      arc=self.args.arc)
-        layouter = self.args.layouter_cls(self.name_short, cards, **kwargs)
+        layouter = self.args.layouter_cls(cards,
+                                          image_size=self.args.image_size,
+                                          image_margins=self.args.margins,
+                                          arc=self.args.arc)
         layouter.run(self.args.include_obverse, self.args.include_reverse)
-        layouter.save(self.folder_svg)
+
+        title_filename = self.name_short if self.args.game_in_filename else ''
+        layouter.save(self.folder_svg, side=self.args.side_in_filename,
+                      card=self.args.card_in_filename,
+                      deck=self.args.deck_in_filename,
+                      game=title_filename,
+                      suffix=self.args.filename_suffix)
 
     def rasterize(self):
         '''Go from vector graphics to bitmaps using Inkscape.'''
