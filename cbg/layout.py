@@ -27,7 +27,7 @@ import os
 import re
 
 import cbg.svg.transform as transform
-from cbg.svg.image import Image
+import cbg.svg.image
 
 
 class Namer():
@@ -95,8 +95,8 @@ class Namer():
         if self._card:
             # This currently requires images to have been created for
             # individual cards.
-            if image.subject:
-                filename = append(image.subject)
+            if image.subjects:
+                filename = append(image.subjects[0])
 
         if self._side:
             # Indirect, based on layouting direction.
@@ -193,19 +193,19 @@ class Layouter(collections.UserList):
         image = self[-1]
         presenter = presenter_class.new(card_copy, origin=origin,
                                         parent=image)
-        self.affix_copy(number, presenter)
+        self.affix_copy(card_copy, number, presenter)
 
     def new_image(self, card, include_obverse):
         '''Use image size specifiable via CLI.'''
-        self.append(Image.new(dimensions=self.image_size,
-                              padding=self.image_margins,
-                              left_to_right=include_obverse,
-                              subject=card))
+        img = cbg.svg.image.LayoutFriendlyImage
+        self.append(img.new(dimensions=self.image_size,
+                            padding=self.image_margins,
+                            left_to_right=include_obverse))
 
-    def affix_copy(self, card_number, presenter):
+    def affix_copy(self, card, card_number, presenter):
         '''Add one copy of a card to the latest image.'''
         # Using add(), the image will calculate how much space will be left.
-        self[-1].add(presenter.size, presenter)
+        self[-1].add(card, presenter)
 
     def get_first_card_size(self, obverse=True):
         if obverse:
@@ -254,6 +254,8 @@ class Layouter(collections.UserList):
 
 
 class Neighbours(Layouter):
+    '''Obverse and reverse sides of cards as neighbours.'''
+
     def run(self, obverse, reverse):
         '''One round of layouting for both sides of cards.'''
         self.layout(True, True)
@@ -261,6 +263,8 @@ class Neighbours(Layouter):
 
 
 class Duplex(Layouter):
+    '''Obverse and reverse sides of cards on alternating images.'''
+
     def on_layout_start(self, obverse, reverse):
         '''Make sure we start afresh for reverse after obverse.
 
@@ -290,6 +294,8 @@ class Duplex(Layouter):
 
 
 class Singles(Layouter):
+    '''One card per image.'''
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -311,6 +317,7 @@ class Singles(Layouter):
 
 
 class Fan(Layouter):
+    '''A hand fan.'''
 
     def __init__(self, *args, **kwargs):
         '''Do some trigonometry in preparation for layouting.
@@ -322,11 +329,8 @@ class Fan(Layouter):
         '''
         super().__init__(*args, **kwargs)
 
-        # Override keyword argument.
-        self.image_margins = (0, 0)
-
-        # Of no arc was specified on creation, make one up.
-        self.arc = self.arc or min((0.15 * (self.n_max - 1), 1))
+        # If no arc was specified on creation, make one up.
+        self.arc = self.arc or min((0.1 * (self.n_max - 1), 0.8))
 
         # The radius of the rotation transformation is based on the height
         # of each card. Cards are assumed to be uniform for this purpose.
@@ -385,17 +389,20 @@ class Fan(Layouter):
         '''An override. Put every card in the middle, near or at the top.'''
         return ((self.image_size[0] - card_size[0]) / 2, self.radial_margin)
 
-    def affix_copy(self, card_number, presenter):
-        '''An override. Rotate each card. Bypass the image's intelligence.'''
+    def new_image(self, card, include_obverse):
+        '''An override. A downgrade to the basic Image class.'''
+        self.append(cbg.svg.image.Image.new(dimensions=self.image_size))
+
+    def affix_copy(self, card, card_number, presenter):
+        '''An override. Rotate each card.'''
+
         # SVG doesn't handle radians.
         angle = math.degrees(self._n_angle(card_number))
         rotation = transform.Rotate(angle, x=self.pivot[0], y=self.pivot[1])
         # Override whatever other transformations are applied.
         presenter.attrib['transform'] = rotation.to_string()
 
-        # Ignore what fits on the page.
-        # Append directly to the image XML object.
-        self[-1].append(presenter)
+        super().affix_copy(card, card_number, presenter)
 
     def with_filenames(self, **kwargs):
         '''An override.'''
