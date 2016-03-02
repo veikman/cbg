@@ -19,52 +19,17 @@
 # Copyright 2014-2016 Viktor Eikman
 
 
+###########
+# IMPORTS #
+###########
+
+
 import collections
 
 
-class SearchableTree():
-    '''Search fundamentals for fields and their presenters, etc.
-
-    Upward search requires a "parent" attribute, while downward search
-    requires iterability. A one-to-many tree structure is thus presupposed.
-
-    '''
-
-    def _search_single(self, hit_function, down=False):
-        '''Recursive search for a single field in the tree structure.'''
-
-        if hit_function(self):
-            return self
-
-        if down:
-            for child in self:
-                try:
-                    ret = child._search_single(hit_function, down=down)
-                    if ret is not None:
-                        return ret
-                except AttributeError:
-                    '''Assume irrelevant, non-searchable content.'''
-                    pass
-        else:
-            if self.parent is None:
-                s = 'Tree search failed: Reached {}, which has no parent.'
-                raise AttributeError(s.format(type(self)))
-
-            return self.parent._search_single(hit_function, down=down)
-
-
-class Formattable():
-    '''Anything that can reformat source material for presentation.'''
-
-    @classmethod
-    def format_text(cls, content):
-        '''Convert from e.g. integer in YAML specs to a presentable string.
-
-        This method is intended to be overridden for the integration
-        of a string templating system.
-
-        '''
-        return str(content)
+#####################
+# INTERFACE CLASSES #
+#####################
 
 
 class Compass():
@@ -103,6 +68,56 @@ class Compass():
     @property
     def reduction(self):
         return (self.horizontal, self.vertical)
+
+
+class Formattable():
+    '''Anything that can reformat source material for presentation.'''
+
+    @classmethod
+    def format_text(cls, content):
+        '''Convert from e.g. integer in YAML specs to a presentable string.
+
+        This method is intended to be overridden for the integration
+        of a string templating system.
+
+        '''
+        return str(content)
+
+
+class SearchableTree():
+    '''Search fundamentals for fields and their presenters, etc.
+
+    Upward search requires a "parent" attribute, while downward search
+    requires iterability. A one-to-many tree structure is thus presupposed.
+
+    '''
+
+    def _search_single(self, hit_function, down=False):
+        '''Recursive search for a single field in the tree structure.'''
+
+        if hit_function(self):
+            return self
+
+        if down:
+            for child in self:
+                try:
+                    ret = child._search_single(hit_function, down=down)
+                    if ret is not None:
+                        return ret
+                except AttributeError:
+                    '''Assume irrelevant, non-searchable content.'''
+                    pass
+        else:
+            if self.parent is None:
+                s = 'Tree search failed: Reached {}, which has no parent.'
+                raise AttributeError(s.format(type(self)))
+
+            return self.parent._search_single(hit_function, down=down)
+
+
+#######################
+# INTERFACE FUNCTIONS #
+#######################
 
 
 def listlike(object_):
