@@ -26,11 +26,7 @@ import os
 import re
 
 from cbg.content import elements
-
-
-SPEC_FORMAT_YAML = 'yaml'
-
-SUPPORTED_SPEC_FORMATS = (SPEC_FORMAT_YAML,)
+import cbg.serialization
 
 
 class Deck(elements.DerivedFromSpec, collections.Counter):
@@ -74,8 +70,8 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
         logging.debug(s.format(len(self), self))
 
     def _parse_spec_file(self, directory):
-        for spec_format in SUPPORTED_SPEC_FORMATS:
-            filename = '.'.join((self.filename_base, spec_format))
+        for extension in cbg.serialization.Serialization.registry:
+            filename = '.'.join((self.filename_base, extension))
             filepath = os.path.join(directory, filename)
             if os.path.exists(filepath):
                 break
@@ -85,17 +81,7 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
 
         logging.debug('Reading raw specifications from {}.'.format(filepath))
 
-        if spec_format == SPEC_FORMAT_YAML:
-            import yaml
-
-            def load(open_file):
-                return yaml.load(open_file)
-
-        else:
-            raise Exception('No method of loading {}.'.format(spec_format))
-
-        with open(filepath, encoding='utf-8') as f:
-            return load(f)
+        return cbg.serialization.Serialization.load(filepath)
 
     def _populate(self, card_cls, card_specs):
         '''Infer the rough data structure of the specification.'''

@@ -6,7 +6,7 @@ setup(
     name='CBG',
     version='0.11.0~alpha1',
     description='Card-based game creation library',
-    requires=['yaml', 'numpy', 'lxml'],
+    requires=['numpy', 'lxml'],
     author='Viktor Eikman',
     author_email='viktor.eikman@gmail.com',
     url='viktor.eikman.se',
