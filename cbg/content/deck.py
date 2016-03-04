@@ -198,14 +198,10 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
             if re.search(regex, card.title):
                 return restricted_copies
 
-    def singles_sorted(self):
-        keys = {f.sorting_keys: f for f in self}
-        return [keys[k] for k in sorted(keys)]
-
     def all_sorted(self):
         '''Produce literal copies of all cards in the deck.'''
         ret = list()
-        for card_type in self.singles_sorted():
+        for card_type in sorted(self):
             for copy_ in range(0, self[card_type]):
                 ret.append(copy.copy(card_type))
         return ret

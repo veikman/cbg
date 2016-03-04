@@ -26,6 +26,7 @@ import math
 import re
 
 import cbg.svg.transform as transform
+import cbg.content.image
 
 
 class Namer():
@@ -188,15 +189,14 @@ class Layouter(collections.UserList):
             self.new_image(card_copy, obverse)
 
         origin = self.get_origin(presenter_class.size)
-        image = self[-1]
         presenter = presenter_class.new(card_copy, origin=origin,
-                                        parent=image)
+                                        parent=self[-1])
         self.affix_copy(card_copy, number, presenter)
 
     def new_image(self, card, include_obverse):
         '''Use image size specifiable via CLI.'''
-        img = cbg.content.image.LayoutFriendlyImage
-        self.append(img(dimensions=self.image_size,
+        cls = cbg.content.image.LayoutFriendlyImage
+        self.append(cls(dimensions=self.image_size,
                         padding=self.image_margins,
                         left_to_right=include_obverse))
 

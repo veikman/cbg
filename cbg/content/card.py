@@ -71,11 +71,6 @@ class Card(elements.DerivedFromSpec, field.Layout):
         raise self.SpecificationError(s.format(self))
 
     @property
-    def sorting_keys(self):
-        '''Used by decks to put themselves in order.'''
-        return str(self.deck), str(self)
-
-    @property
     def title(self):
         '''Quick access to the card's title field's processed value, if any.
 
@@ -100,6 +95,48 @@ class Card(elements.DerivedFromSpec, field.Layout):
     def card(self):
         '''An override of a field method.'''
         return self
+
+    @property
+    def _sorting_signature(self):
+        '''Salient properties of self, for sorting purposes.
+
+        To be overridden for card types with other salient properties.
+
+        '''
+        return str(self.deck), str(self)
+
+    def __eq__(self, other):
+        '''Used for sorting (as performed by decks).'''
+        try:
+            return self._sorting_signature == other._sorting_signature
+        except AttributeError:
+            return False
+
+    def __lt__(self, other):
+        '''Used for sorting (as performed by decks).
+
+        Notice that this method and __eq__ cannot be used with
+        functools.total_ordering, because that decorator will not override
+        inherited comparison methods from our parent classes.
+
+        '''
+        try:
+            return self._sorting_signature < other._sorting_signature
+        except AttributeError:
+            s = 'Tried to sort {} relative to incompatible {}.'
+            raise TypeError(s.format(type(self), type(other)))
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __le__(self, other):
+        return self < other or self == other
+
+    def __gt__(self, other):
+        return not self < other
+
+    def __ge__(self, other):
+        return self > other or self == other
 
     def __str__(self):
         return self.title

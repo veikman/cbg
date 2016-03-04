@@ -39,7 +39,7 @@ class Deck(unittest.TestCase):
         self.deck = deck.Deck(CardSubclass, raw=SPEC)
 
     def test_sorting_singles(self):
-        sorted_ = [c.title for c in self.deck.singles_sorted()]
+        sorted_ = [c.title for c in sorted(self.deck)]
         self.assertListEqual(sorted_, [FIRST, SECOND, THIRD])
 
     def test_sorting_copies(self):
