@@ -135,6 +135,12 @@ class Application():
              'its argument and defaults to eog or evince depending on output')
         group.add_argument('-d', '--display', metavar='APP', nargs='?',
                            const='', help=s)
+        s = 'list cards as serialized data on console'
+        group.add_argument('--list-cards', default=False,
+                           action='store_true', help=s)
+        s = 'list images as serialized data on console'
+        group.add_argument('--list-images', default=False,
+                           action='store_true', help=s)
 
         s = 'include the title of the first depicted card in each filename'
         parser.add_argument('--card-in-filename', default=False,
@@ -302,30 +308,32 @@ class Application():
         self.delete_old_files(self.folder_png)
 
         # Collect and sieve through deck specifications.
-        specs = collections.OrderedDict()
+        cards_by_deck_title = collections.OrderedDict()
+        presentation = dict()
         for deck in sorted(self.read_deck_specs()):
+
+            presentation[deck.title] = {str(t): c for t, c in deck.items()}
+
             # Extract just the cards.
             try:
-                specs[deck.title] = deck.all_sorted()
+                cards_by_deck_title[deck.title] = deck.all_sorted()
             except:
                 s = 'An error occurred while sorting data for deck "{}".'
                 logging.critical(s.format(deck.title))
                 raise
 
-        # Flatten specifications to a single list of cards for layouting.
-        cards = [card for listing in specs.values() for card in listing]
+        if self.args.list_cards:
+            print(cbg.serialization.Serialization.dumps(presentation))
+            return 0
 
-        # Produce SVG.
-        self.vectorize(cards)
-
-        # Treat saved SVG and exit application appropriately.
+        # Produce SVG, treat it and exit application appropriately.
         try:
-            return self._output()
+            return self._output(self.vectorize(cards_by_deck_title))
         except self.ExternalError as e:
             logging.error(str(e))
             return 1
 
-    def _output(self):
+    def _output(self, images):
         '''Consider showing on screen, printing etc.
 
         Return an exit status: 0 if successful, else a positive integer.
@@ -333,7 +341,15 @@ class Application():
         '''
 
         if self.args.rasterize is not None:
-            self.rasterize()
+            logging.debug('Producing raster graphics.')
+            try:
+                os.mkdir(self.folder_png)
+            except FileExistsError:
+                logging.debug('Destination folder for PNG already exists.')
+
+            for image in images:
+                image.filepath = self.rasterize(image.filepath)
+
         elif self.args.document:
             filepath = self.args.document
             if filepath.lower().endswith('.pdf'):
@@ -354,8 +370,12 @@ class Application():
                 filename = self.folder_svg
                 viewer = self.args.display or 'eog'
             self._external_process([viewer, filename])
-
-        if self.args.print:
+        elif self.args.list_images:
+            presentation = dict()
+            for image in images:
+                presentation[image.filename] = tuple(map(str, image.subjects))
+            print(cbg.serialization.Serialization.dumps(presentation))
+        elif self.args.print:
             self.print_output()
 
         return 0
@@ -392,10 +412,18 @@ class Application():
                                    self.args.gallery, self.args.deck_sample)
             yield deck
 
-    def vectorize(self, cards):
-        '''Compose SVG images and save them.'''
+    def vectorize(self, decks):
+        '''Compose SVG images and save them.
+
+        Return a layouter, which is a list of the images with some extra
+        information attached.
+
+        '''
 
         logging.debug('Producing vector graphics.')
+
+        # Flatten specifications to a single list of cards for layouting.
+        cards = [card for listing in decks.values() for card in listing]
 
         try:
             os.mkdir(self.folder_svg)
@@ -409,30 +437,25 @@ class Application():
         layouter.run(self.args.include_obverse, self.args.include_reverse)
 
         title_filename = self.name_short if self.args.game_in_filename else ''
-        layouter.save(self.folder_svg, side=self.args.side_in_filename,
+        layouter.save(self.folder_svg,
+                      side=self.args.side_in_filename,
                       card=self.args.card_in_filename,
                       deck=self.args.deck_in_filename,
                       game=title_filename,
                       suffix=self.args.filename_suffix)
 
-    def rasterize(self):
-        '''Go from vector graphics to bitmaps using Inkscape.'''
+        return layouter
 
-        logging.debug('Producing raster graphics.')
-
+    def rasterize(self, svg_filepath):
+        '''Go from vector graphics to a bitmap using Inkscape.'''
         dpi = self.args.rasterize or self.default_dpi
-
-        try:
-            os.mkdir(self.folder_png)
-        except FileExistsError:
-            logging.debug('Destination folder for PNG already exists.')
-
-        for svg in self.all_svg_filepaths():
-            logging.debug('Rasterizing {}.'.format(svg))
-            png = '{}.png'.format(os.path.basename(svg).rpartition('.')[0])
-            png = os.path.join(self.folder_png, png)
-            cmd = ['inkscape', '-e', png, '-d', str(dpi), svg]
-            self._external_process(cmd)
+        logging.debug('Rasterizing {}.'.format(svg_filepath))
+        basename = os.path.basename(svg_filepath).rpartition('.')[0]
+        png_filename = '{}.png'.format(basename)
+        png_filepath = os.path.join(self.folder_png, png_filename)
+        cmd = ['inkscape', '-e', png_filepath, '-d', str(dpi), svg_filepath]
+        self._external_process(cmd)
+        return png_filepath
 
     def convert_to_pdf(self, filepath):
         '''Author a PDF with librsvg.'''

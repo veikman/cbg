@@ -23,11 +23,9 @@ import collections
 import itertools
 import logging
 import math
-import os
 import re
 
 import cbg.svg.transform as transform
-import cbg.svg.image
 
 
 class Namer():
@@ -197,10 +195,10 @@ class Layouter(collections.UserList):
 
     def new_image(self, card, include_obverse):
         '''Use image size specifiable via CLI.'''
-        img = cbg.svg.image.LayoutFriendlyImage
-        self.append(img.new(dimensions=self.image_size,
-                            padding=self.image_margins,
-                            left_to_right=include_obverse))
+        img = cbg.content.image.LayoutFriendlyImage
+        self.append(img(dimensions=self.image_size,
+                        padding=self.image_margins,
+                        left_to_right=include_obverse))
 
     def affix_copy(self, card, card_number, presenter):
         '''Add one copy of a card to the latest image.'''
@@ -231,26 +229,19 @@ class Layouter(collections.UserList):
         '''To be overridden.'''
         pass
 
-    def with_filenames(self, **kwargs):
-        '''A generator.
-
-        Intended for use in the secondary presentation of graphics with
-        captions derived from card objects. This is currently meaningful
-        only in the case of one image per card, where the card is stored
-        as the subject of the image.
-
-        '''
+    def set_filenames(self, directory=None, **kwargs):
         kwargs.setdefault('count_max', len(self))
         namer = Namer(**kwargs)
+
         for image in self:
-            filename = namer.name_image(image)
-            yield image, filename
+            image.directory = directory
+            image.filename = namer.name_image(image)
 
     def save(self, destination_folder, **kwargs):
         '''Save all images to named folder.'''
-        for image, filename in self.with_filenames(**kwargs):
-            filepath = os.path.join(destination_folder, filename)
-            image.save(filepath)
+        self.set_filenames(directory=destination_folder, **kwargs)
+        for image in self:
+            image.save()
 
 
 class Neighbours(Layouter):
@@ -390,8 +381,8 @@ class Fan(Layouter):
         return ((self.image_size[0] - card_size[0]) / 2, self.radial_margin)
 
     def new_image(self, card, include_obverse):
-        '''An override. A downgrade to the basic Image class.'''
-        self.append(cbg.svg.image.Image.new(dimensions=self.image_size))
+        '''An override. A downgrade to the BaseImage class.'''
+        self.append(cbg.content.image.BaseImage(dimensions=self.image_size))
 
     def affix_copy(self, card, card_number, presenter):
         '''An override. Rotate each card.'''
