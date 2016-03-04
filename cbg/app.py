@@ -373,15 +373,24 @@ class Application():
         return 0
 
     def _external_process(self, cmd):
+        def log_output(text):
+            for line in text.splitlines():
+                logging.debug('Subprocess output: {}'.format(line))
+
         try:
-            subprocess.check_call(cmd)
+            o = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except FileNotFoundError:
             s = 'External application "{}" not found.'
             raise self.ExternalError(s.format(cmd[0]))
         except subprocess.CalledProcessError as e:
             logging.debug('Call {} failed.'.format(cmd))
+            log_output(e.output)
             s = 'External application "{}" terminated with error: {}.'
             raise self.ExternalError(s.format(cmd[0], e.returncode))
+        else:
+            logging.debug('Call {} succeeded.'.format(cmd))
+            log_output(o)
+            return o
 
     def delete_old_files(self, folder):
         '''Use globbing to get a valid relative path.'''

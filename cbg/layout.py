@@ -190,7 +190,7 @@ class Layouter(collections.UserList):
 
         origin = self.get_origin(presenter_class.size)
         presenter = presenter_class.new(card_copy, origin=origin,
-                                        parent=self[-1])
+                                        parent=self[-1].xml)
         self.affix_copy(card_copy, number, presenter)
 
     def new_image(self, card, include_obverse):
@@ -278,10 +278,10 @@ class Duplex(Layouter):
             tmp.extend(pair)
         self.data = tmp
 
-    def with_filenames(self, **kwargs):
+    def set_filenames(self, **kwargs):
         '''An override.'''
         kwargs.setdefault('side', True)
-        return super().with_filenames(**kwargs)
+        return super().set_filenames(**kwargs)
 
 
 class Singles(Layouter):
@@ -301,10 +301,10 @@ class Singles(Layouter):
             self.image_size = card.presenter_class_back.size
         super().new_image(card, obverse)
 
-    def with_filenames(self, **kwargs):
+    def set_filenames(self, **kwargs):
         '''An override.'''
         kwargs.setdefault('card', True)
-        return super().with_filenames(**kwargs)
+        return super().set_filenames(**kwargs)
 
 
 class Fan(Layouter):
@@ -395,7 +395,7 @@ class Fan(Layouter):
 
         super().affix_copy(card, card_number, presenter)
 
-    def with_filenames(self, **kwargs):
+    def set_filenames(self, **kwargs):
         '''An override.'''
         kwargs['suffix'] = kwargs.get('suffix') or 'fan'
-        return super().with_filenames(**kwargs)
+        return super().set_filenames(**kwargs)
