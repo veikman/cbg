@@ -21,7 +21,6 @@
 
 import argparse
 import ast
-import collections
 import os
 import glob
 import logging
@@ -308,27 +307,20 @@ class Application():
         self.delete_old_files(self.folder_png)
 
         # Collect and sieve through deck specifications.
-        cards_by_deck_title = collections.OrderedDict()
-        presentation = dict()
-        for deck in sorted(self.read_deck_specs()):
+        decks = self.read_deck_specs()
 
-            presentation[deck.title] = {str(t): c for t, c in deck.items()}
-
-            # Extract just the cards.
-            try:
-                cards_by_deck_title[deck.title] = deck.all_sorted()
-            except:
-                s = 'An error occurred while sorting data for deck "{}".'
-                logging.critical(s.format(deck.title))
-                raise
-
+        # Consider console output before generating SVG.
         if self.args.list_cards:
+            presentation = dict()
+            for deck in decks:
+                presentation[deck.title] = {str(t): c for t, c in deck.items()}
+
             print(cbg.serialization.Serialization.dumps(presentation))
             return 0
 
         # Produce SVG, treat it and exit application appropriately.
         try:
-            return self._output(self.vectorize(cards_by_deck_title))
+            return self._output(self.vectorize(decks))
         except self.ExternalError as e:
             logging.error(str(e))
             return 1
@@ -423,7 +415,7 @@ class Application():
         logging.debug('Producing vector graphics.')
 
         # Flatten specifications to a single list of cards for layouting.
-        cards = [card for listing in decks.values() for card in listing]
+        cards = sorted(card for deck in decks for card in deck.flat())
 
         try:
             os.mkdir(self.folder_svg)

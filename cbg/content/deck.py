@@ -20,7 +20,6 @@
 
 
 import collections
-import copy
 import logging
 import os
 import re
@@ -198,13 +197,14 @@ class Deck(elements.DerivedFromSpec, collections.Counter):
             if re.search(regex, card.title):
                 return restricted_copies
 
-    def all_sorted(self):
-        '''Produce literal copies of all cards in the deck.'''
-        ret = list()
-        for card_type in sorted(self):
-            for copy_ in range(0, self[card_type]):
-                ret.append(copy.copy(card_type))
-        return ret
+    def flat(self):
+        '''Produce an iterable of all cards in the deck.
+
+        Cards in the iterable are repeated to reflect how many copies exist
+        in the deck.
+
+        '''
+        return (card for card, count in self.items() for _ in range(count))
 
     def __lt__(self, other):
         return self.title < other.title
