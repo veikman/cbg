@@ -344,14 +344,14 @@ class Fan(Layouter):
 
         # The outer arc segment's chord helps determine the width of the image.
         # NOTE: This will not have the desired results if arc > π.
-        outer_chord = 2 * outer_radius * math.sin(self.arc / 2)
+        outer_chord = 2 * outer_radius * math.sin(abs(self.arc) / 2)
         # The outermost cards extend a little further.
-        chord_margin = (cx / 2) * math.cos(self.arc / 2)
+        chord_margin = (cx / 2) * math.cos(abs(self.arc) / 2)
 
         # The sagitta of the inner arc helps determine the height of the image.
-        inner_sagitta = inner_radius * (1 - math.cos(self.arc / 2))
+        inner_sagitta = inner_radius * (1 - math.cos(abs(self.arc) / 2))
         # Again this is extended by the outermost cards.
-        sagitta_margin = (cx / 2) * math.sin(self.arc / 2)
+        sagitta_margin = (cx / 2) * math.sin(abs(self.arc) / 2)
         # It's also extended by the tallest corner of any single card,
         # which can pass above the outer radius. Call it radial margin.
         try:

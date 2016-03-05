@@ -232,9 +232,7 @@ class Application():
             except:
                 raise argparse.ArgumentTypeError('must be a number')
 
-            if value < 0:
-                raise argparse.ArgumentTypeError('cannot be negative')
-            elif value > math.pi:
+            if not -math.pi <= value <= math.pi:
                 s = 'cannot exceed π radians (180°)'
                 raise argparse.ArgumentTypeError(s)
 
@@ -261,8 +259,10 @@ class Application():
         s = 'Draw cards in the shape of a hand fan, for display purposes.'
         fan = subparsers.add_parser('fan', description=s)
         fan.set_defaults(layouter_cls=cbg.layout.Fan)
+        s = ('the angle the cards will span; the last card will be on the '
+             'right with a positive angle, else on the left')
         fan.add_argument('--arc', metavar='RADIANS', type=arc,
-                         default=0, help='the angle the cards will span')
+                         default=0, help=s)
 
         s = 'Give each card its own image.'
         singles = subparsers.add_parser('singles', description=s)
