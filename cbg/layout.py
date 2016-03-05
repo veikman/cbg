@@ -336,9 +336,9 @@ class Fan(Layouter):
         inner_radius = outer_radius - cy
 
         def corner_height(n):
-            '''The height in mm of a card corner over the outer arc.'''
+            '''The height of the highest card corner over the outer arc.'''
             angle = self._n_angle(n)
-            corner_over_midpoint = (cx / 2) * math.sin(angle)
+            corner_over_midpoint = (cx / 2) * abs(math.sin(angle))
             midpoint_over_pivot = outer_radius * math.cos(angle)
             return corner_over_midpoint + midpoint_over_pivot - outer_radius
 
