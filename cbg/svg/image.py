@@ -81,6 +81,9 @@ class SVG(cbg.misc.SearchableTree, svg.SVGElement):
         '''Convenient access to the top-level defs container.'''
         return self.find('defs')
 
+    def to_string(self):
+        return lxml.etree.tostring(self, pretty_print=True)
+
     def save(self, filepath):
         '''Prune dud presenters and save SVG code to the named file.'''
         for element in self.iter():
@@ -90,4 +93,4 @@ class SVG(cbg.misc.SearchableTree, svg.SVGElement):
                 element.getparent().remove(element)
 
         with open(filepath, mode='bw') as f:
-            f.write(lxml.etree.tostring(self, pretty_print=True))
+            f.write(self.to_string())
