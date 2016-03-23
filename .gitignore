@@ -1,3 +1,7 @@
 .*
+dist
+deb_dist
 __pycache__
+MANIFEST
 dev_*
+*.tar.gz
