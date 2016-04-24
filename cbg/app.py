@@ -130,16 +130,22 @@ class Application():
         group = parser.add_mutually_exclusive_group()
         s = 'send output to printer through lp (GNU+Linux only)'
         group.add_argument('-p', '--print', action='store_true', help=s)
-        s = ('call APP to display output; APP should handle a folder name as '
-             'its argument and defaults to eog or evince depending on output')
-        group.add_argument('-d', '--display', metavar='APP', nargs='?',
-                           const='', help=s)
         s = 'list cards as serialized data on console'
         group.add_argument('--list-cards', default=False,
                            action='store_true', help=s)
         s = 'list images as serialized data on console'
         group.add_argument('--list-images', default=False,
                            action='store_true', help=s)
+
+        # Using "nargs='?'" can create confusion with layouting mode
+        # subparser names as subsequent arguments. So there's a simpler form.
+        subgroup = group.add_mutually_exclusive_group()
+        s = 'display output using eog or evince depending on rasterization'
+        subgroup.add_argument('-d', '--display', '--view', default=False,
+                              action='store_true', help=s)
+        s = 'call APP to display output'
+        subgroup.add_argument('--viewer', dest='display', metavar='APP',
+                              nargs='?', const=True, help=s)
 
         s = 'include the title of the first depicted card in each filename'
         parser.add_argument('--card-in-filename', default=False,
@@ -185,13 +191,19 @@ class Application():
             return value
 
         group = product.add_mutually_exclusive_group()
-        s = ('bitmap output via Inkscape; the default resolution in dots per '
-             'inch (DPI) is {}').format(self.default_dpi)
-        group.add_argument('-r', '--rasterize', metavar='DPI', nargs='?',
-                           const=self.default_dpi, type=nonnegative_int,
-                           help=s)
         s = 'produce a document from SVG data, format inferred from filename'
         group.add_argument('--document', metavar='FILENAME', help=s)
+
+        # As with --display, we provide an option for default DPI that cannot
+        # be confused with subsequent arguments.
+        subgroup = group.add_mutually_exclusive_group()
+        s = 'bitmap output via Inkscape at {} DPI'.format(self.default_dpi)
+        subgroup.add_argument('-r', '--rasterize', action='store_const',
+                              const=self.default_dpi, help=s)
+        s = 'bitmap output via Inkscape at any resolution'
+        subgroup.add_argument('--dpi', metavar='DPI', nargs='?',
+                              dest='rasterize', const=self.default_dpi,
+                              type=nonnegative_int, help=s)
 
         def numeric_2tuple(value):
             '''Type-checking function for argparse.'''
@@ -287,7 +299,8 @@ class Application():
 
         if args.print:
             # Rasterization is implied.
-            args.rasterize = self.default_dpi
+            if not args.rasterize:
+                args.rasterize = self.default_dpi
 
         return args
 
@@ -332,7 +345,7 @@ class Application():
 
         '''
 
-        if self.args.rasterize is not None:
+        if self.args.rasterize:
             logging.debug('Producing raster graphics.')
             try:
                 os.mkdir(self.folder_png)
@@ -351,22 +364,28 @@ class Application():
                 logging.error(s)
                 return 1
 
-        if self.args.display is not None:
+        if self.args.display:
             if self.args.document:
                 filename = self.args.document
-                viewer = self.args.display or 'evince'
+                viewer = 'evince'
             elif self.args.rasterize:
                 filename = self.folder_png
-                viewer = self.args.display or 'eog'
+                viewer = 'eog'
             else:
                 filename = self.folder_svg
-                viewer = self.args.display or 'eog'
+                viewer = 'eog'
+
+            if isinstance(self.args.display, str):
+                viewer = self.args.display
+
             self._external_process([viewer, filename])
+
         elif self.args.list_images:
             presentation = dict()
             for image in images:
                 presentation[image.filename] = tuple(map(str, image.subjects))
             print(cbg.serialization.Serialization.dumps(presentation))
+
         elif self.args.print:
             self.print_output()
 
@@ -415,6 +434,8 @@ class Application():
 
     def vectorize(self, decks):
         '''Compose SVG images and save them.
+
+        Take a generator or other iterable of deck objects.
 
         Return a layouter, which is a list of the images with some extra
         information attached.
