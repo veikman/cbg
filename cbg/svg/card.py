@@ -47,11 +47,12 @@ class CardFront(CardPresenter):
     def present(self):
         '''Draw a white background and a rounded black frame on top.'''
 
+        # We want main mode thickness corner rounding, even for the background.
+        t = self.wardrobe.mode.thickness
+
         # Add background.
-        t = self.wardrobe.mode.thickness  # Preserved from the main mode.
         self.wardrobe.set_mode(wardrobe.BACKGROUND)
-        self.append(Rect.new(self.origin + t / 2, self.size - t,
-                             rounding=t, wardrobe=self.wardrobe,))
+        self.append(Rect.from_presenter(self, rounding=t))
 
         # Restore wardrobe thickness for use by children in layouting.
         self.wardrobe.reset()
@@ -60,8 +61,7 @@ class CardFront(CardPresenter):
         self.recurse()
 
         # Add frame.
-        self.append(Rect.new(self.origin + t / 2, self.size - t,
-                             rounding=t, wardrobe=self.wardrobe))
+        self.append(Rect.from_presenter(self, rounding=t))
 
 
 class CardBack(CardPresenter):
@@ -78,8 +78,7 @@ class CardBack(CardPresenter):
         '''Draw a white background without a frame, and adjust the cursor.'''
         t = self.wardrobe.mode.thickness
         self.wardrobe.set_mode(wardrobe.BACKGROUND)
-        self.append(Rect.new(self.origin, self.size, rounding=1.5 * t,
-                             wardrobe=self.wardrobe,))
+        self.append(Rect.from_presenter(self, rounding=1.5 * t))
         self.wardrobe.reset()
 
         self.cursor.slide(self.size[1] / 3)

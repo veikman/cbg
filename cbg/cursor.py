@@ -20,14 +20,18 @@
 
 
 class _GraphicsElementInsertionCursor():
-    '''A direction from which to insert new elements on a card.'''
+    '''A direction from which to insert new elements on a card.
+
+    Abstract base class.
+
+    '''
 
     flip_line_order = False
 
-    def __init__(self, parent):
+    def __init__(self, space=None, displacement=0):
         '''Take a presenter with access to size information.'''
-        self.parent = parent
-        self.displacement = 0
+        self.space = space
+        self.displacement = displacement
 
     @property
     def offset(self):
@@ -41,8 +45,14 @@ class _GraphicsElementInsertionCursor():
         '''Return an appropriate height for the next insertion, and move.'''
         raise NotImplementedError
 
-    def text(self, size, envelope):
-        '''A direction-sensitive line feed.'''
+    def text(self, font_size, line_height, n_lines=1):
+        '''A direction-sensitive line feed.
+
+        Return a position appropriate for starting text insertion.
+
+        The "line_height" argument refers to the height in mm to feed past.
+
+        '''
         raise NotImplementedError
 
 
@@ -57,18 +67,23 @@ class FromTop(_GraphicsElementInsertionCursor):
         self.displacement += height
         return self.offset
 
-    def text(self, size, envelope):
-        relevant = self.slide(size)
-        self.slide(envelope - size)
-        return relevant
+    def text(self, font_size, line_height, n_lines=1):
+        y_insertion = self.slide(font_size)
+        self.slide(n_lines * line_height - font_size)
+        return y_insertion
 
 
 class FromBottom(_GraphicsElementInsertionCursor):
     flip_line_order = True
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.space is None:
+            raise ValueError('Upward cursors require space.')
+
     @property
     def offset(self):
-        return self.parent.size[1] - self.displacement
+        return self.space - self.displacement
 
     def slide(self, height):
         '''Insert first, then move (up). State position from top of card.'''
@@ -76,6 +91,6 @@ class FromBottom(_GraphicsElementInsertionCursor):
         self.displacement += height
         return original_offset
 
-    def text(self, size, envelope):
-        self.slide(envelope - size)
-        return self.slide(size)
+    def text(self, font_size, line_height, n_lines=1):
+        self.slide(n_lines * line_height - font_size)
+        return self.slide(font_size)

@@ -91,8 +91,8 @@ class TagBanner(presenter.SVGPresenter):
         b = self.origin + (self.size[0], y_offset)
 
         # Encode the line.
-        line = shapes.Line.new(a, b, wardrobe=self.wardrobe,
-                               stroke_width=boxheight)
+        line = shapes.Line.new(a, b, stroke_width=boxheight,
+                               **self.wardrobe.to_svg_attributes())
         self.append(line)
 
     @default_to_specified_text

@@ -7,6 +7,13 @@ import unittest
 import cbg
 
 
+class TableField(unittest.TestCase):
+    def test_2x3_specification(self):
+        specification = (('h1', 'h2'), ('c1a', 'c1b'), ('c2a', 'c2b'))
+        field = cbg.content.field.Table(specification=specification)
+        self.assertEqual(field.shape, (3, 2))
+
+
 class LayoutField(unittest.TestCase):
 
     class TagDependentField(cbg.content.text.TextField):

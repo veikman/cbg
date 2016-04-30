@@ -36,7 +36,7 @@ class Image(svg.SVGElement):
         return super().new(**kwargs)
 
 
-class Text(svg.WardrobeStyledElement):
+class Text(svg.SVGElement):
     '''Printed text content on a card.
 
     A text argument when instantiating this class is not mandatory,
@@ -45,7 +45,7 @@ class Text(svg.WardrobeStyledElement):
     '''
     TAG = 'text'
 
-    class Span(svg.WardrobeStyledElement):
+    class Span(svg.SVGElement):
         TAG = 'tspan'
 
     @classmethod
@@ -54,11 +54,11 @@ class Text(svg.WardrobeStyledElement):
         return super().new(transform_ext_auto=position, **kwargs)
 
 
-class Mask(svg.IDElement, svg.WardrobeStyledElement):
+class Mask(svg.IDElement):
     TAG = 'mask'
     _id_prefix = 'm'
 
 
-class ClipPath(svg.IDElement, svg.WardrobeStyledElement):
+class ClipPath(svg.IDElement):
     TAG = 'clipPath'
     _id_prefix = 'cP'

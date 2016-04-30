@@ -273,28 +273,6 @@ class IDElement(SVGElement):
         return super().new(set_id=set_id, **attributes)
 
 
-class WardrobeStyledElement(SVGElement):
-
-    @classmethod
-    def new(cls, wardrobe=None, transform_ext=None, transform_ext_auto=None,
-            **attributes):
-        '''Use a provided wardrobe.
-
-        CBG provides a wardrobe class as a convenience for generating
-        certain common stylistic attributes systematically.
-
-        '''
-        if wardrobe:
-            if transform_ext is None:
-                transform_ext = transform_ext_auto
-
-            auto = wardrobe.to_svg_attributes(transform_ext)
-            auto.update(attributes)
-            attributes = auto
-
-        return super().new(**attributes)
-
-
 def python_to_svg_key(string_key):
     '''SVG uses dashes as word separators in its attribute data.'''
     return string_key.replace('_', '-')

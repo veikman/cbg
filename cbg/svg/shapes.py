@@ -26,7 +26,23 @@ from cbg import geometry
 from cbg.svg import svg
 
 
-class Rect(svg.WardrobeStyledElement):
+class Shape(svg.SVGElement):
+    '''Base class for modelling SVG shapes.'''
+
+    @classmethod
+    def transformation_extension(cls, *args):
+        '''Produce extra data needed for SVG transformations of an instance.
+
+        The arguments to this method should be identical to the positional
+        arguments needed to instantiate the same class.
+
+        '''
+        # In this default version, assume the first argument is a centerpoint,
+        # hence directly useful for transformations.
+        return args[0]
+
+
+class Rect(Shape):
     '''A rectangle.'''
 
     TAG = 'rect'
@@ -39,11 +55,24 @@ class Rect(svg.WardrobeStyledElement):
         if rounding is not None:
             kwargs['rx'] = kwargs['ry'] = misc.rounded(rounding)
 
-        center = numpy.array(position) + numpy.array(size) / 2
-        return super().new(transform_ext_auto=center, **kwargs)
+        return super().new(**kwargs)
+
+    @classmethod
+    def from_presenter(cls, presenter, rounding=None):
+        '''A convenience based on the CBG presenter API.'''
+        t = presenter.wardrobe.mode.thickness
+        rounding = t if rounding is True else rounding
+        position, size = presenter.origin + t / 2, presenter.size - t
+        center = cls.transformation_extension(position, size)
+        attrib = presenter.wardrobe.to_svg_attributes(transform_ext=center)
+        return cls.new(position, size, rounding=rounding, **attrib)
+
+    @classmethod
+    def transformation_extension(cls, position, size):
+        return numpy.array(position) + numpy.array(size) / 2
 
 
-class Circle(svg.WardrobeStyledElement):
+class Circle(Shape):
     '''A circle.'''
 
     TAG = 'circle'
@@ -52,10 +81,10 @@ class Circle(svg.WardrobeStyledElement):
     def new(cls, centerpoint, radius, **kwargs):
         kwargs['cx'], kwargs['cy'] = misc.rounded(centerpoint)
         kwargs['r'] = misc.rounded(radius)
-        return super().new(transform_ext_auto=centerpoint, **kwargs)
+        return super().new(**kwargs)
 
 
-class Ellipse(svg.WardrobeStyledElement):
+class Ellipse(Shape):
     '''An ellipse.'''
 
     TAG = 'ellipse'
@@ -64,10 +93,10 @@ class Ellipse(svg.WardrobeStyledElement):
     def new(cls, centerpoint, radii, **kwargs):
         kwargs['cx'], kwargs['cy'] = misc.rounded(centerpoint)
         kwargs['rx'], kwargs['ry'] = misc.rounded(radii)
-        return super().new(transform_ext_auto=centerpoint, **kwargs)
+        return super().new(**kwargs)
 
 
-class Line(svg.WardrobeStyledElement):
+class Line(Shape):
     '''A single-segment line.'''
 
     TAG = 'line'
@@ -76,11 +105,14 @@ class Line(svg.WardrobeStyledElement):
     def new(cls, point1, point2, **kwargs):
         kwargs['x1'], kwargs['y1'] = misc.rounded(point1)
         kwargs['x2'], kwargs['y2'] = misc.rounded(point2)
-        mean = geometry.ListOfPoints((point1, point1)).mean
-        return super().new(transform_ext_auto=mean, **kwargs)
+        return super().new(**kwargs)
+
+    @classmethod
+    def transformation_extension(cls, *points):
+        return geometry.ListOfPoints(points).mean
 
 
-class PolyLine(svg.WardrobeStyledElement):
+class PolyLine(Shape):
     '''A multi-segment line.'''
 
     TAG = 'polyline'
@@ -89,8 +121,11 @@ class PolyLine(svg.WardrobeStyledElement):
     def new(cls, points, **kwargs):
         coordinate_pairs = (','.join(misc.rounded(p) for p in points))
         kwargs['points'] = ' '.join(coordinate_pairs)
-        mean = geometry.ListOfPoints(points).mean
-        return super().new(transform_ext_auto=mean, **kwargs)
+        return super().new(**kwargs)
+
+    @classmethod
+    def transformation_extension(cls, points):
+        return geometry.ListOfPoints(points).mean
 
 
 class Polygon(PolyLine):

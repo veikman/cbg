@@ -23,7 +23,7 @@ import cbg.misc
 from cbg.svg import svg
 
 
-class Path(svg.WardrobeStyledElement):
+class Path(svg.SVGElement):
     '''A path, i.e. an arbitrary line or shape, as defined in SVG.'''
 
     TAG = 'path'

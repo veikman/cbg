@@ -204,7 +204,11 @@ class List(BaseField, list):
 
 
 class Array(BaseField, cbg.geometry.ObjectArray):
-    '''A multi-dimensional array of subordinate fields.'''
+    '''A multi-dimensional array of subordinate fields.
+
+    Abstract base class. Implemented in the grid module and as Table, below.
+
+    '''
 
     def __iter__(self):
         try:
@@ -216,6 +220,25 @@ class Array(BaseField, cbg.geometry.ObjectArray):
 
     def __bool__(self):
         return self.specification is not None
+
+
+class Table(Array):
+    '''A two-dimensional array of text etc. for use as a table.'''
+
+    def layout(self):
+        n_rows = len(self.specification)
+        distinct_n_cols = set(map(lambda r: len(r), self.specification))
+        if len(distinct_n_cols) == 1:
+            n_cols = distinct_n_cols.pop()
+        else:
+            s = 'Table specification has an uneven number of columns: {}.'
+            raise ValueError(s.format(distinct_n_cols))
+
+        self.resize((n_rows, n_cols), refcheck=False)
+
+        for i, row in enumerate(self.specification):
+            for j, cell_content in enumerate(row):
+                self[i][j] = str(cell_content)
 
 
 class Layout(BaseSpecifiableField, List):

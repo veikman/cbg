@@ -25,6 +25,7 @@ import logging
 import lxml.etree
 import numpy
 
+import cbg.cursor
 import cbg.misc
 import cbg.geometry
 from cbg.svg import svg
@@ -148,7 +149,7 @@ class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
         '''Return a cursor object, or None.'''
         if cursor is None:
             if self.cursor_class:
-                cursor = self.cursor_class(self)
+                cursor = self.cursor_class(space=self.size[1])
         if cursor is None:
             try:
                 cursor = self.parent.cursor
@@ -264,13 +265,14 @@ class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
         else:
             return self
 
-    def line_feed(self):
+    def line_feed(self, n_lines=1):
         '''Advance the cursor by the height of a line of text.'''
         return self.cursor.text(self.wardrobe.font_size,
-                                self.wardrobe.line_height)
+                                self.wardrobe.line_height, n_lines=n_lines)
 
-    def insert_paragraph(self, content, initial_indent='',
-                         subsequent_indent='', lead='', follow=True):
+    def insert_paragraph(self, content, lead='', initial_indent='',
+                         subsequent_indent='', x_offsetter=None,
+                         y_offsetter=None, follow=True):
         '''Insert text that can be multiple lines.
 
         If inserted from the bottom of the card, the text block will
@@ -283,26 +285,43 @@ class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
         the initial indent. Leads are highlighted.
 
         '''
+        if x_offsetter is None:
+            def x_offsetter():
+                return self.wardrobe.mode.anchor_offset(self.size[0])
+
+        if y_offsetter is None:
+            y_offsetter = self.line_feed
+
         lines = self._wrap(lead + content, initial_indent, subsequent_indent)
-        first = [True] + [False] * (len(lines) - 1)
-        if self.cursor.flip_line_order:
-            lines = lines[::-1]
-            first = first[::-1]
 
-        x_relative = self.wardrobe.horizontal_anchor(self.size[0])
-        for line, top in zip(lines, first):
-            position = self.origin + (x_relative, self.line_feed())
-            element = misc.Text.new(position, wardrobe=self.wardrobe)
-            self.append(element)
-
-            if top and lead:
-                self._formatted_paragraph_lead(element, line, initial_indent,
-                                               lead)
-            else:
-                element.text = line
+        self._insert_text_block(lines, x_offsetter, y_offsetter, lead=lead,
+                                initial_indent=initial_indent)
 
         if follow:
             self.cursor.slide(self.wardrobe.after_paragraph)
+
+    def _insert_text_block(self, lines, x_offsetter, y_offsetter,
+                           column=0, lead='', initial_indent=''):
+        '''Create SVG text elements from an iterable of lines of text.'''
+        if self.cursor.flip_line_order:
+            lines = lines[::-1]
+            first_index = -1
+        else:
+            first_index = 0
+
+        for i, line in enumerate(lines):
+            position = self.origin + (x_offsetter(), y_offsetter())
+            attrib = self.wardrobe.to_svg_attributes(column=column)
+            element = misc.Text.new(position, **attrib)
+            self.append(element)
+
+            if i == first_index and lead:
+                # Set the first part of the line in bold.
+                span = misc.Text.Span.new(text=lead, font_weight='bold')
+                span.tail = line.partition(initial_indent + lead)[2]
+                element.append(span)
+            else:
+                element.text = line
 
     def _wrap(self, content, initial, subsequent):
         return textwrap.wrap(content, width=self._characters_per_line,
@@ -313,18 +332,6 @@ class SVGPresenter(cbg.misc.SearchableTree, svg.SVGElement):
     def _characters_per_line(self):
         '''The maximum number of characters printable on each line.'''
         return int(self.size[0] / self.wardrobe.character_width)
-
-    def _formatted_paragraph_lead(self, text_element, line, ii, lead):
-        '''Set the first part of a line in bold.'''
-        span = misc.Text.Span.new(text=lead, font_weight='bold')
-        text_element.append(span)
-        try:
-            span.tail = line.partition(ii + lead)[2]
-        except IndexError:
-            s = ('Failed to split line "{}" after paragraph lead "{}". '
-                 'Lead too long for a word to fit after it?')
-            logging.critical(s.format(line, lead))
-            raise
 
 
 class FramedLayout(SVGPresenter):
@@ -387,7 +394,11 @@ class TextPresenter(IndentedPresenter):
 
     def insert_paragraphs(self):
         '''An almost-bare-bones insertion of typical all-text content.'''
-        for paragraph in self.field:
+        paragraphs = list(self.field)
+        if self.cursor.flip_line_order:
+            paragraphs = paragraphs[::-1]
+
+        for paragraph in paragraphs:
             self.set_up_paragraph()
             self.insert_paragraph(str(paragraph))
 

@@ -31,9 +31,7 @@ class Square(presenter.SVGPresenter):
     size = (3, 3)
 
     def present(self):
-        t = self.wardrobe.mode.thickness
-        self.append(shapes.Rect.new(self.origin + t / 2, self.size - t,
-                                    rounding=t, wardrobe=self.wardrobe))
+        self.append(shapes.Rect.from_presenter(self, rounding=True))
 
 
 class Empty(Square):

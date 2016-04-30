@@ -80,15 +80,23 @@ class Mode():
                  italic=False, oblique=False, style=None,
                  bold=False, bolder=False, lighter=False, weight=None,
                  start=False, middle=False, end=False, anchor=None,
-                 small_caps=False, variant=None):
+                 anchors=(), small_caps=False, variant=None):
 
         # The majority of keyword arguments relate to typesetting.
         self.style = self._filter(italic=italic, oblique=oblique, direct=style)
         self.weight = self._filter(bold=bold, bolder=bolder,
                                    lighter=lighter, direct=weight)
         self.variant = self._filter(small_caps=small_caps, direct=variant)
-        self.anchor = self._filter(start=start, middle=middle, end=end,
-                                   direct=anchor)
+
+        # Anchoring, a.k.a. text alignment in the designated space, is stored
+        # on a column basis for use in tables. Most wardrobes only have one
+        # anchor. The last anchor is treated as the main one.
+        if anchors:
+            self.anchors = anchors
+        else:
+            self.anchors = [self._filter(start=start, middle=middle, end=end,
+                                         direct=anchor,
+                                         default=keys.ALIGN_START)]
 
         # If provided, "font" should be an instance of the Font class below.
         self.font = font
@@ -109,7 +117,7 @@ class Mode():
         # Miscellaneous.
         self.dasharray = dasharray  # Affects stroke.
 
-    def _filter(self, direct=None, **kwargs):
+    def _filter(self, direct=None, default=None, **kwargs):
         '''Select one of the possible arguments for a single attribute.'''
         if direct:
             return direct
@@ -117,6 +125,38 @@ class Mode():
         for key, value in kwargs.items():
             if value:
                 return key
+
+        return default
+
+    def anchor_key(self, column=-1):
+        '''The main configured typesetting anchor.'''
+        try:
+            return self.anchors[column]
+        except IndexError:
+            # No specific support for column. Resort to the standard anchor.
+            return self.anchor_key()
+
+    # Formulae for deriving a horizontal anchor position from space and margin.
+    _anchor_formulae = {keys.ALIGN_START: lambda s, m: m,
+                        keys.ALIGN_MIDDLE: lambda s, m: s / 2,
+                        keys.ALIGN_END: lambda s, m: s - m}
+
+    def anchor_offset(self, space, margin=0, column=0):
+        '''An X coordinate.
+
+        The coordinate represents where in space a text SVG element
+        should be placed, given its specified alignment.
+
+        Lacking typesetting info, a Western-style writing system
+        is assumed, going from left to right.
+
+        '''
+        anchor = self.anchor_key(column=column)
+        try:
+            return self._anchor_formulae[anchor](space, margin)
+        except KeyError:
+            s = 'Unrecognized SVG text anchor (alignment): "{}".'
+            raise ValueError(s.format(anchor))
 
     def copy(self, **kwargs):
         '''Make a copy, treating kwargs like overriding arguments to init.'''
@@ -204,27 +244,7 @@ class Wardrobe():
 
         return self.font_size * self.mode.character_width_to_height
 
-    def horizontal_anchor(self, space, margin=0):
-        '''An X coordinate.
-
-        The coordinate represents where in space a text SVG element
-        should be placed, given its specified alignment.
-
-        Due to lack of typesetting info, a Western-style writing system
-        is assumed, going from left to right.
-
-        '''
-        if self.mode.anchor in (None, keys.ALIGN_START):
-            return margin
-        elif self.mode.anchor == keys.ALIGN_MIDDLE:
-            return space / 2
-        elif self.mode.anchor == keys.ALIGN_END:
-            return space - margin
-        else:
-            s = 'Unrecognized SVG text anchor (alignment): "{}".'
-            raise ValueError(s.format(self.mode.anchor))
-
-    def to_svg_attributes(self, transform_ext=None):
+    def to_svg_attributes(self, column=0, transform_ext=None):
         '''Produce a simple dictionary for use with SVGElement.
 
         The "position" argument is relevant only with a rotation
@@ -250,8 +270,9 @@ class Wardrobe():
             if self.mode.variant is not None:
                 style['font-variant'] = self.mode.variant
 
-            if self.mode.anchor is not None:
-                attrib[keys.TEXT_ANCHOR] = self.mode.anchor
+            anchor_key = self.mode.anchor_key(column)
+            if anchor_key is not keys.ALIGN_START:
+                attrib[keys.TEXT_ANCHOR] = anchor_key
 
         if self.mode.fill_colors:
             color = self.mode.fill_colors[0]

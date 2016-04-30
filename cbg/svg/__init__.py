@@ -11,6 +11,7 @@ from . import image
 from . import grid
 from . import filter
 from . import tag
+from . import table
 
-__all__ = [card, filter, misc, transform, grid, image, presenter, svg, tag,
-           wardrobe]
+__all__ = [card, filter, misc, transform, grid, image, presenter, svg, table,
+           tag, wardrobe]

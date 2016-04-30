@@ -24,6 +24,7 @@ class DefsElement(unittest.TestCase):
         self.image = image.SVG.new()
         self.presenter = self.Presenter.new(unittest.mock.MagicMock(),
                                             origin=(0, 0),
+                                            size=(10, 10),
                                             parent=self.image)
 
     def test_default_empty(self):
