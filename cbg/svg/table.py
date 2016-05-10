@@ -83,8 +83,6 @@ class TablePresenter(presenter.IndentedPresenter):
 
     def _insert_row(self, row, width_requirements):
         cwidth = self.wardrobe.character_width
-        anchor_offset = self.wardrobe.mode.anchor_offset
-
         max_lines = max(map(lambda c: len(c.splitlines()), row))
         y_init = self.line_feed(n_lines=max_lines)
 
@@ -101,7 +99,8 @@ class TablePresenter(presenter.IndentedPresenter):
                                         range(col_i)))
                 space = cwidth * width_requirements[col_i][1]
 
-                return init + anchor_offset(space, column=col_i)
+                return init + self.wardrobe.mode.anchor_offset(space,
+                                                               column=col_i)
 
             def y_offsetter():
                 local = cursor.text(self.wardrobe.font_size,

@@ -5,12 +5,14 @@ The classes in this module are designed to work from specifications
 shaped like a 1-deep string-indexed unordered hash map of iterables of
 two-dimensional coordinate pairs. In YAML it looks like this:
 
-<keyword for grid field>:
-  <keyword for content type A>:
-     - <coordinate pair>
-     - ...
-  <keyword for content type B>:
-     - ...
+  <keyword for grid field>:
+    <keyword for content type>:
+       - <coordinate pair>
+       - ...
+    <keyword for content type>:
+       - <coordinate pair>
+       - ...
+    ...
 
 All named coordinate pairs exist on the map, but CBG will determine
 an offset so that a full set of pairs like (10, 10), (10, 11) are
