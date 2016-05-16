@@ -52,7 +52,7 @@ class CardFront(CardPresenter):
 
         # Add background.
         self.wardrobe.set_mode(wardrobe.BACKGROUND)
-        self.append(Rect.from_presenter(self, rounding=t))
+        self.append(Rect.from_presenter(self, rounding=1.5 * t))
 
         # Restore wardrobe thickness for use by children in layouting.
         self.wardrobe.reset()
