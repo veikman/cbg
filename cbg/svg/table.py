@@ -117,9 +117,10 @@ class TablePresenter(presenter.IndentedPresenter):
         array = self.field.copy()
         requirements = tuple(self.requirements_by_column(array))
 
-        if sum(r[0] for r in requirements) > self._characters_per_line:
-            s = 'Minimal column widths too large for available space.'
-            raise ValueError(s)
+        minima = sum(r[0] for r in requirements)
+        if minima > self._characters_per_line:
+            s = 'Minimal column widths {} too large for available space {}.'
+            raise ValueError(s.format(minima, self._characters_per_line))
 
         while sum(r[1] for r in requirements) > self._characters_per_line:
             deltas = tuple(r[1] - r[0] for r in requirements)
