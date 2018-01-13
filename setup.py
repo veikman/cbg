@@ -2,9 +2,11 @@
 
 from distutils.core import setup
 
+import cbg as subject
+
 setup(
-    name='CBG',
-    version='0.12.2',
+    name=subject.__name__,
+    version=subject.__version__,
     description='Card-based game creation library',
     requires=['numpy', 'lxml'],
     author='Viktor Eikman',

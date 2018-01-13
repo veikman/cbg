@@ -12,13 +12,14 @@ and for "resurrecting" games long out of print.
 
 ### Installation
 
-CBG is a regular Python 3 package. Refer to the included scripts.
+CBG is a regular Python 3 distutils package. Please read the makefile
+for common conveniences.
 
 
 ### Usage
 
 By default, CBG produces SVG graphics scaled to A4 pages, with measurements
-treated as millimetres, despite the scale-free nature of SVG.
+treated as being in millimetres, despite the scale-free nature of SVG.
 
 An example implementation is provided in another repository, where CBG
 is used to generate a [planning poker](https://github.com/veikman/ppoker) deck.

@@ -11,3 +11,4 @@ from . import content
 from . import app
 
 __all__ = [app, content, cursor, geometry, keys, misc, sample, svg]
+__version__ = '0.13.0'
